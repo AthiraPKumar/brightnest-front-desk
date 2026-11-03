@@ -1,8 +1,10 @@
 // Vercel serverless function: POST /api/chat
 // Proxies the demo page's chat to xAI Grok. The API key is read from the
-// XAI_API_KEY environment variable on the server and never sent to the browser.
+// xAI_API_New environment variable (falls back to XAI_API_KEY) on the server
+// and never sent to the browser.
 
 const XAI_URL = 'https://api.x.ai/v1/chat/completions';
+const apiKey = () => (process.env.xAI_API_New || process.env.XAI_API_KEY || '').trim();
 const MODEL = process.env.XAI_MODEL || 'grok-4.20-0309-non-reasoning';
 
 const LIMITS = {
@@ -78,7 +80,7 @@ module.exports = async function handler(req, res) {
     res.setHeader('Retry-After', '60');
     return fail(res, 429, 'rate_limited', 'Too many messages too quickly. Wait a moment, then send again.');
   }
-  if (!process.env.XAI_API_KEY) {
+  if (!apiKey()) {
     return fail(res, 503, 'not_configured', 'Live AI is not set up on this server.');
   }
 
@@ -107,7 +109,7 @@ module.exports = async function handler(req, res) {
   try {
     const r = await fetch(XAI_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.XAI_API_KEY}` },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey()}` },
       body: JSON.stringify({
         model: MODEL,
         messages: [

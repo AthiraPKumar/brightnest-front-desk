@@ -18,7 +18,7 @@ Apply every change to both files. Apart from the wrapper, they should diff clean
 - Vercel Node function in CommonJS (`module.exports`). There is no `package.json` and there are no dependencies, and it uses the global `fetch`.
 - Takes `POST {system, messages}`, where `system` is `rules()` and `messages` are user/assistant turns. It calls `https://api.x.ai/v1/chat/completions` with `response_format: {type:'json_object'}` and returns the normalised `{reply, status, booking, handoff}`. Errors come back as `{error:{code, message}}` with a 4xx or 5xx status.
 - A fixed server-side `GUARD` prompt goes before the page's prompt. It keeps the assistant on topic and professional and makes it say it is an AI. The browser cannot override it.
-- Environment: `XAI_API_KEY` (required, set in Vercel, never in the page or git) and `XAI_MODEL` (optional, default `grok-4.20-0309-non-reasoning`). `.env.example` lists both with no values. `.gitignore` ignores `.env*` except `.env.example`.
+- Environment: `xAI_API_New` (required, case-sensitive, set in Vercel, never in the page or git; `XAI_API_KEY` is read as a fallback, see `apiKey()`) and `XAI_MODEL` (optional, default `grok-4.20-0309-non-reasoning`). `.env.example` lists both with no values. `.gitignore` ignores `.env*` except `.env.example`.
 - Limits live in `LIMITS`: 30 messages, 1,200 characters per message, 12,000-character system prompt, 15 requests per minute and 300 per day per IP (in memory, per instance, best-effort), and a 25 s upstream timeout. The page's textarea has `maxlength="1200"` to match.
 
 ## How the page works (script at the bottom of the file)

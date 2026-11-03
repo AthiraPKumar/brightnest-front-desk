@@ -25,7 +25,7 @@ Live demo: https://brightnest-front-desk.vercel.app/
 ## Hosting on Vercel (with live Grok replies)
 1. Import the repo on Vercel. Framework preset **Other**, no build command, root directory `/`.
    Vercel serves `index.html` and deploys `api/chat.js` as a function automatically.
-2. In **Settings → Environment Variables**, add `XAI_API_KEY` (your key from console.x.ai).
+2. In **Settings → Environment Variables**, add `xAI_API_New` (your key from console.x.ai; the name is case-sensitive). The older name `XAI_API_KEY` still works as a fallback.
    Optional: `XAI_MODEL` to change the model (default `grok-4.20-0309-non-reasoning`).
 3. Redeploy. Every push to `main` redeploys.
 
