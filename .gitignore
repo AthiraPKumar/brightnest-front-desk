@@ -1,0 +1,11 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+
+# Local env / secrets (for the phase 2 backend)
+.env
+.env.*
+node_modules/

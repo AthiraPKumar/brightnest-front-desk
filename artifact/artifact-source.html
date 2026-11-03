@@ -1,0 +1,518 @@
+<title>BrightNest AI Front Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* Alpine: snow ground, evergreen ink, one glacier-blue moment (the AI's voice orb).
+   Layout: nav → serif hero → console (conversation panel | owner's ledger) → business setup → how it works. */
+:root{
+  --snow:#FFFFFF; --frost:#F5F7F6; --ink:#0E2A22; --pine:#1F5C48; --glacier:#CFE4EA; --glacier-deep:#8FBCC8;
+  --lichen:#66766F; --body-ink:#4E5E57; --line:#E6EAE8; --line-strong:#DDE3E0; --resin:#A8691A;
+  --on-ink:#FFFFFF; --placeholder:#7D8A84;
+  --serif:"Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --sans:"Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"Geist Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --snow:#0A1512; --frost:#11201C; --ink:#E7F0EC; --pine:#7CCBAE; --glacier:#3E6A74; --glacier-deep:#9FD0DB;
+  --lichen:#93A69E; --body-ink:#B4C4BD; --line:#1F332E; --line-strong:#2A433D; --resin:#E3A04C;
+  --on-ink:#0A1512; --placeholder:#7E918A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --snow:#0A1512; --frost:#11201C; --ink:#E7F0EC; --pine:#7CCBAE; --glacier:#3E6A74; --glacier-deep:#9FD0DB;
+  --lichen:#93A69E; --body-ink:#B4C4BD; --line:#1F332E; --line-strong:#2A433D; --resin:#E3A04C;
+  --on-ink:#0A1512; --placeholder:#7E918A; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--snow);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.gutter{padding-left:max(24px,env(safe-area-inset-left,0px));padding-right:max(24px,env(safe-area-inset-right,0px))}
+.inner{max-width:1328px;margin:0 auto}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--pine);outline-offset:2px}
+.mono{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+
+/* nav */
+nav{border-bottom:1px solid var(--line);padding-block:18px}
+nav .inner{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:12px}
+.logo .name{font-family:var(--serif);font-size:24px;letter-spacing:-.01em;line-height:1}
+.tag{color:var(--lichen);border:1px solid var(--line);border-radius:999px;padding:4px 9px}
+.navr{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
+.navr a{color:var(--lichen);text-decoration:none;font-size:14px}
+.navr a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:999px;padding:9px 16px;font-size:14px;font-weight:500;border:1px solid var(--line-strong);background:var(--snow);color:var(--ink)}
+.btn:hover{border-color:var(--ink)}
+.btn.solid{background:var(--ink);color:var(--on-ink);border-color:var(--ink)}
+.btn.solid svg path{fill:var(--glacier)}
+
+/* hero */
+.hero{padding-block:52px 36px}
+.hero .inner{display:flex;align-items:flex-end;justify-content:space-between;gap:40px;flex-wrap:wrap}
+.live{color:var(--pine);display:flex;align-items:center;gap:8px}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--pine);display:inline-block}
+h1{font-family:var(--serif);font-weight:400;font-size:clamp(42px,6vw,72px);line-height:1;letter-spacing:-.025em;margin:14px 0 0;max-width:18ch;text-wrap:balance}
+@media (max-width:600px){.navr a{display:none}.turn.agent .txt{font-size:21px;line-height:28px}.thread{padding-inline:20px}}
+h1 em{color:var(--pine)}
+.lede{color:var(--lichen);max-width:36ch;margin:0;font-size:15px;line-height:24px}
+
+#noAI{margin-top:20px;border:1px solid var(--resin);color:var(--resin);border-radius:14px;padding:10px 14px;font-size:14px;max-width:72ch}
+
+/* console */
+.console{padding-block:0 64px}
+.console .inner{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:28px;align-items:start}
+@media (max-width:1040px){.console .inner{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--frost);border-radius:24px;display:flex;flex-direction:column;height:680px;max-height:82vh;min-width:0;overflow:hidden}
+.phead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px 24px;flex-wrap:wrap}
+.who{display:flex;align-items:center;gap:14px;min-width:0}
+.orb{width:44px;height:44px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%, #FFFFFF 0%, var(--glacier) 45%, var(--glacier-deep) 100%);box-shadow:0 0 0 6px color-mix(in oklab, var(--glacier) 55%, transparent);transition:box-shadow .3s}
+.orb.speaking{animation:breathe 1.4s ease-in-out infinite}
+@keyframes breathe{50%{box-shadow:0 0 0 12px color-mix(in oklab, var(--glacier) 35%, transparent)}}
+@media (prefers-reduced-motion:reduce){.orb.speaking{animation:none;box-shadow:0 0 0 10px color-mix(in oklab, var(--glacier) 45%, transparent)}}
+.who b{display:block;font-size:15px;font-weight:600}
+.who .mono{color:var(--lichen);letter-spacing:.08em;text-transform:none;font-size:11px}
+.seg{display:flex;gap:2px;padding:4px;background:var(--snow);border-radius:999px}
+.seg button{border:0;background:transparent;border-radius:999px;padding:7px 16px;font-size:13px;color:var(--lichen)}
+.seg button[aria-selected="true"]{background:var(--ink);color:var(--on-ink);font-weight:500}
+
+.thread{flex:1;overflow-y:auto;padding:8px 32px 20px;display:flex;flex-direction:column;gap:22px}
+.turn{display:flex;flex-direction:column;gap:6px;max-width:100%}
+.turn .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--lichen)}
+.turn.cust{align-items:flex-end}
+.turn.cust .txt{max-width:min(440px,90%);background:var(--ink);color:var(--on-ink);padding:12px 16px;border-radius:18px 18px 4px 18px;font-size:15px;line-height:22px;white-space:pre-wrap;word-wrap:break-word}
+.turn.agent{align-items:flex-start}
+.turn.agent .lbl{color:var(--pine)}
+.turn.agent .txt{max-width:min(560px,100%);font-family:var(--serif);font-size:24px;line-height:31px;letter-spacing:-.01em;white-space:pre-wrap;word-wrap:break-word}
+.turn.agent.thinking .txt{color:var(--lichen);font-style:italic;font-size:21px}
+.sys{align-self:center;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--lichen)}
+.wave{display:inline-flex;align-items:center;gap:3px;height:20px;vertical-align:middle;margin-right:10px}
+.wave i{width:3px;border-radius:2px;background:var(--glacier-deep);display:block;animation:wv 1s ease-in-out infinite}
+.wave i:nth-child(1){height:8px}.wave i:nth-child(2){height:16px;animation-delay:.1s}.wave i:nth-child(3){height:20px;background:var(--pine);animation-delay:.2s}.wave i:nth-child(4){height:12px;animation-delay:.3s}.wave i:nth-child(5){height:6px;animation-delay:.4s}
+@keyframes wv{50%{transform:scaleY(.45)}}
+@media (prefers-reduced-motion:reduce){.wave i{animation:none}}
+
+.foot{padding:0 24px 22px;display:flex;flex-direction:column;gap:12px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chips button{background:transparent;border:1px solid var(--line-strong);border-radius:999px;padding:7px 12px;font-size:13px;color:var(--ink);text-align:left}
+.chips button:hover{border-color:var(--ink)}
+.composer{display:flex;align-items:center;gap:10px;background:var(--snow);border:1px solid var(--line);border-radius:999px;padding:6px 6px 6px 20px}
+.composer textarea{flex:1;border:0;background:transparent;resize:none;height:24px;min-height:24px;line-height:24px;font-size:15px;outline:none;padding:0}
+.composer textarea::placeholder{color:var(--placeholder)}
+.composer:focus-within{border-color:var(--pine)}
+.send{width:40px;height:40px;border-radius:50%;border:0;background:var(--ink);display:grid;place-items:center;flex:none}
+.send svg path{stroke:var(--on-ink)}
+.send:disabled{opacity:.4;cursor:not-allowed}
+.status{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--lichen)}
+
+.callstart{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:16px;padding:24px}
+.callstart .orb{width:96px;height:96px;box-shadow:0 0 0 14px color-mix(in oklab, var(--glacier) 45%, transparent)}
+.callstart .num{font-family:var(--serif);font-size:34px;letter-spacing:-.01em}
+.callstart p{color:var(--lichen);max-width:44ch;margin:0}
+.answer{border:0;border-radius:999px;background:var(--pine);color:#FFFFFF;padding:13px 26px;font-weight:500}
+:root[data-theme="dark"] .answer{color:#0A1512}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .answer{color:#0A1512}}
+.hang{border:1px solid var(--resin);color:var(--resin);background:transparent;border-radius:999px;padding:7px 14px;font-size:13px}
+
+/* ledger */
+.ledger{min-width:0}
+.lhead{display:flex;align-items:baseline;justify-content:space-between;padding:4px 0 18px;border-bottom:1px solid var(--ink)}
+.lhead h2{font-family:var(--serif);font-weight:400;font-size:34px;letter-spacing:-.015em;margin:0;line-height:1}
+.lhead .mono{color:var(--lichen)}
+.stats{display:flex;padding:20px 0 24px;border-bottom:1px solid var(--line)}
+.stats div{display:flex;flex-direction:column;gap:4px}
+.stats div:first-child{flex:1}
+.stats div:not(:first-child){width:84px}
+.stats b{font-family:var(--serif);font-weight:400;font-size:44px;line-height:44px;font-variant-numeric:tabular-nums}
+.stats span{font-size:13px;color:var(--lichen)}
+.stats .hand b{color:var(--resin)}
+.rows{max-height:520px;overflow-y:auto}
+.row{display:flex;gap:14px;padding:18px 0;border-bottom:1px solid var(--line)}
+.dot{width:10px;height:20px;flex:none;display:grid;place-items:center}
+.dot i{width:8px;height:8px;border-radius:50%;background:var(--pine)}
+.row.handoff .dot i{background:var(--resin)}
+.rbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.rtop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.rtop b{font-size:15px;font-weight:600}
+.rtop .amt{font-family:var(--serif);font-size:21px;line-height:20px;white-space:nowrap}
+.rtop .flag{font-family:var(--mono);font-size:11px;color:var(--resin);white-space:nowrap}
+.rbody p{margin:0;font-size:14px;line-height:21px;color:var(--body-ink);word-wrap:break-word}
+.rbody .meta{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--lichen)}
+.empty{color:var(--lichen);font-size:14px;padding:22px 0;margin:0}
+
+/* setup */
+section.band{border-top:1px solid var(--line);padding-block:56px}
+.bandhead{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap;margin-bottom:28px}
+.bandhead h2{font-family:var(--serif);font-weight:400;font-size:40px;letter-spacing:-.02em;line-height:1.05;margin:8px 0 0}
+.bandhead p{color:var(--lichen);max-width:44ch;margin:0}
+.bandhead .mono{color:var(--pine)}
+.setup{display:grid;grid-template-columns:300px minmax(0,1fr);gap:28px}
+@media (max-width:820px){.setup{grid-template-columns:minmax(0,1fr)}}
+.fields{display:flex;flex-direction:column;gap:18px}
+label{display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--lichen)}
+input[type=text]{border:0;border-bottom:1px solid var(--line-strong);background:transparent;padding:6px 0;font-size:18px;color:var(--ink);border-radius:0}
+input[type=text]:focus{outline:none;border-bottom-color:var(--pine)}
+textarea#kb{background:var(--frost);border:1px solid var(--line);border-radius:18px;padding:18px 20px;font-family:var(--mono);font-size:12.5px;line-height:1.7;min-height:380px;resize:vertical;width:100%}
+.linkbtn{background:none;border:0;padding:0;color:var(--pine);text-decoration:underline;text-underline-offset:3px;font-size:14px;align-self:flex-start}
+
+/* how */
+.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--ink)}
+@media (max-width:900px){.steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.steps{grid-template-columns:minmax(0,1fr)}}
+.step{padding:20px 20px 24px 0;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--line)}
+.step .mono{color:var(--lichen)}
+.step b{font-family:var(--serif);font-weight:400;font-size:26px;line-height:1.1}
+.step p{margin:0;color:var(--body-ink);font-size:14px;line-height:21px;max-width:30ch}
+.step.core b{color:var(--pine)}
+footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px solid var(--line)}
+</style>
+
+<nav class="gutter"><div class="inner">
+  <div class="logo">
+    <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="12" fill="var(--ink)"/><path d="M13 6.5 L14.6 11.4 L19.5 13 L14.6 14.6 L13 19.5 L11.4 14.6 L6.5 13 L11.4 11.4 Z" fill="var(--glacier)"/></svg>
+    <span class="name" id="coShort">BrightNest</span>
+    <span class="tag mono">AI Front Desk</span>
+  </div>
+  <div class="navr">
+    <a href="#setup">Business setup</a>
+    <a href="#how">How it works</a>
+    <button class="btn" id="reset" type="button">New conversation</button>
+    <button class="btn solid" id="autoplay" type="button"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 1 L9 5 L2 9 Z"/></svg>Play sample</button>
+  </div>
+</div></nav>
+
+<header class="hero gutter"><div class="inner">
+  <div>
+    <div class="live mono"><i></i><span id="liveLine">Online · answering calls and WhatsApp 24/7</span></div>
+    <h1>Every call answered. <em>Every booking</em> captured.</h1>
+    <div id="noAI" hidden>Live AI replies aren't available in this view. “Play sample” runs a scripted conversation instead. For live replies, open the page while signed in to Claude and allow it to use Claude.</div>
+  </div>
+  <p class="lede" id="lede">Mia quotes from your price list, books the slot and hands complaints to you. In German or English, by phone or by message.</p>
+</div></header>
+
+<main class="console gutter"><div class="inner">
+  <section class="panel" aria-label="Customer conversation">
+    <div class="phead">
+      <div class="who">
+        <div class="orb" id="orb" aria-hidden="true"></div>
+        <div><b id="agentLabel">Mia</b><span class="mono" id="whoLine">WhatsApp · replies in seconds</span></div>
+      </div>
+      <div class="seg" role="tablist" aria-label="Channel">
+        <button role="tab" id="tabMsg" aria-selected="true" type="button">Message</button>
+        <button role="tab" id="tabCall" aria-selected="false" type="button">Phone call</button>
+      </div>
+    </div>
+    <div class="callstart" id="callstart" hidden>
+      <div class="orb" aria-hidden="true"></div>
+      <span class="mono" style="color:var(--lichen)">Incoming call</span>
+      <span class="num">+49 30 5555 0142</span>
+      <p>Mia answers out loud through your speakers. Type what the caller says, or tap a suggestion. On the live phone line the caller simply talks.</p>
+      <button type="button" class="answer" id="startCall">Let Mia answer</button>
+    </div>
+    <div class="thread" id="thread" aria-live="polite"></div>
+    <div class="foot" id="foot">
+      <div class="chips" id="chips"></div>
+      <form class="composer" id="composer">
+        <textarea id="input" rows="1" placeholder="Write as the customer…" aria-label="Customer message"></textarea>
+        <button class="send" id="send" type="submit" aria-label="Send"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8 H13 M9 4 L13 8 L9 12" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </form>
+      <div class="status" id="status">Ready</div>
+    </div>
+  </section>
+
+  <aside class="ledger" aria-labelledby="ledgerH">
+    <div class="lhead"><h2 id="ledgerH">Today</h2><span class="mono">Owner's inbox</span></div>
+    <div class="stats">
+      <div><b id="sVal">€0</b><span>Booked value</span></div>
+      <div><b id="sBook">0</b><span>Bookings</span></div>
+      <div class="hand"><b id="sHand">0</b><span>For you</span></div>
+    </div>
+    <div class="rows" id="inbox"><p class="empty" id="emptyInbox">Bookings and callbacks appear here the moment Mia captures them.</p></div>
+  </aside>
+</div></main>
+
+<section class="band gutter" id="setup"><div class="inner">
+  <div class="bandhead">
+    <div><span class="mono">Agent brain</span><h2>Business setup</h2></div>
+    <p>Change this before a demo to match the prospect. Mia only quotes what is written here. Your edits stay in this browser.</p>
+  </div>
+  <div class="setup">
+    <div class="fields">
+      <label for="coName">Company name<input type="text" id="coName" value="BrightNest Reinigung"></label>
+      <label for="agentName">Assistant name<input type="text" id="agentName" value="Mia"></label>
+      <button type="button" class="linkbtn" id="resetKb">Restore sample business</button>
+    </div>
+    <label for="kb">Services, prices and policies<textarea id="kb" spellcheck="false"></textarea></label>
+  </div>
+</div></section>
+
+<section class="band gutter" id="how"><div class="inner">
+  <div class="bandhead">
+    <div><span class="mono">Production setup</span><h2>How the live version works</h2></div>
+    <p>One agent and one price list behind every channel. Phone calls go through Grok Voice. Messages use the same agent in text mode.</p>
+  </div>
+  <div class="steps">
+    <div class="step"><span class="mono">Channel</span><b>Phone &amp; WhatsApp</b><p>Twilio number over SIP, WhatsApp Business API, website chat.</p></div>
+    <div class="step core"><span class="mono">Agent</span><b>Grok Voice Agent</b><p>Listens, thinks and speaks in one model. German, English and 20+ more.</p></div>
+    <div class="step"><span class="mono">Tools</span><b>Quote · Calendar · CRM</b><p>Calculates the price, checks free slots, books the job, logs the customer.</p></div>
+    <div class="step"><span class="mono">Owner</span><b>Alerts &amp; callbacks</b><p>New bookings and anything needing a person go straight to the owner.</p></div>
+  </div>
+</div></section>
+
+<footer class="gutter"><div class="inner">Demo with a sample business. Names, numbers and bookings in the sample conversation are invented.</div></footer>
+
+<script>
+(function(){
+const DEFAULT_KB = `COMPANY: BrightNest Reinigung, home & office cleaning, Berlin (sample business)
+HOURS: Mon–Sat 07:00–19:00. Phone/WhatsApp answered 24/7 by the assistant.
+AREA: Steglitz, Lankwitz, Lichterfelde, Tempelhof, Schöneberg, Friedenau, Zehlendorf. Other districts: pass to a human.
+
+SERVICES & PRICES (incl. VAT, supplies included)
+- Regular home cleaning: €32 per hour, minimum 3 hours. Rule of thumb: 1 hour per 25 m².
+- Deep clean: €4.20 per m², minimum €180.
+- End-of-tenancy clean (Endreinigung): €5.50 per m², minimum €250. Includes inside oven and fridge.
+- Window cleaning: €6 per window (inside + outside), minimum €60.
+- Extras: inside oven €35, inside fridge €25, balcony €30.
+- Office cleaning: needs an on-site visit. Pass to a human to schedule it.
+
+AVAILABILITY (next 2 weeks)
+- Mornings 08:00 and afternoons 13:00, Monday to Saturday. No Sundays.
+- Same-day jobs: not possible. Next-day: only if booked before 15:00.
+
+POLICIES
+- Free cancellation up to 24 h before. Later: 50% fee.
+- Payment after the job by card, PayPal or bank transfer.
+- Satisfaction guarantee: free re-clean if reported within 48 h.
+- Damage claims, complaints, refunds: always pass to a human (Jonas, the owner).`;
+
+const $ = id => document.getElementById(id);
+const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const kb = $('kb'), coName = $('coName'), agentName = $('agentName');
+kb.value = store.get('fd.kb') || DEFAULT_KB;
+coName.value = store.get('fd.co') || coName.value;
+agentName.value = store.get('fd.agent') || agentName.value;
+const A = () => agentName.value.trim() || 'Mia';
+function syncNames(){
+  $('coShort').textContent = (coName.value.trim().split(' ')[0]) || 'Your company';
+  $('agentLabel').textContent = A();
+  $('lede').textContent = `${A()} quotes from your price list, books the slot and hands complaints to you. In German or English, by phone or by message.`;
+}
+kb.addEventListener('input', ()=>store.set('fd.kb', kb.value));
+coName.addEventListener('input', ()=>{store.set('fd.co', coName.value); syncNames();});
+agentName.addEventListener('input', ()=>{store.set('fd.agent', agentName.value); syncNames();});
+$('resetKb').onclick = ()=>{kb.value = DEFAULT_KB; store.set('fd.kb', DEFAULT_KB);};
+syncNames();
+
+let mode = 'message', turns = [], busy = false, ctl = null;
+let sample = null, aiReady = false, aiChecked = false;
+let stats = {book:0, hand:0, val:0};
+let callStart = 0, callTick = null, inCall = false, playing = false;
+const thread = $('thread');
+
+function add(kind, text){
+  if (kind==='sys'){ const s=document.createElement('div'); s.className='sys'; s.textContent=text; thread.appendChild(s); thread.scrollTop=thread.scrollHeight; return s; }
+  const d=document.createElement('div'); d.className='turn '+kind;
+  const l=document.createElement('span'); l.className='lbl'; l.textContent = kind==='cust' ? (mode==='call'?'CALLER':'CUSTOMER') : A().toUpperCase();
+  const t=document.createElement('div'); t.className='txt'; t.textContent=text;
+  d.append(l,t); thread.appendChild(d); thread.scrollTop=thread.scrollHeight; return t;
+}
+function thinking(){
+  const t = add('agent',''); t.parentElement.classList.add('thinking');
+  const w=document.createElement('span'); w.className='wave'; w.innerHTML='<i></i><i></i><i></i><i></i><i></i>';
+  t.append(w, document.createTextNode(mode==='call'?'listening…':'writing…'));
+  return t;
+}
+function settle(t, text){ t.parentElement.classList.remove('thinking'); t.textContent=text; thread.scrollTop=thread.scrollHeight; }
+function status(s){ $('status').textContent = s; }
+function greeting(){
+  const c = coName.value.trim() || 'our company';
+  return mode==='call'
+    ? `Hello, you're through to ${c}, this is ${A()}. How can I help you today?`
+    : `Hi, I'm ${A()} from ${c}. I can give you a price, check free dates and book your cleaning. What do you need?`;
+}
+const CHIPS = {
+  message:['How much is a deep clean for a 70 m² flat?','Ich ziehe aus – was kostet eine Endreinigung für 55 m²?','Do you clean in Lankwitz on Friday morning?','Your cleaner broke my vase. I want to talk to someone.'],
+  call:['I need a cleaner for my flat, about 80 square metres.','Was kostet eine Endreinigung?','Can you come tomorrow?','I’d like to speak to a person, please.']
+};
+function renderChips(){ const b=$('chips'); b.textContent=''; CHIPS[mode].forEach(t=>{const x=document.createElement('button');x.type='button';x.textContent=t;x.onclick=()=>send(t);b.appendChild(x);}); }
+
+function rules(){
+  const channel = mode==='call'
+    ? 'PHONE CALL. Your reply is spoken aloud by text-to-speech. Use 1–2 short, natural spoken sentences. No lists, no emoji, no markdown; say prices as words (e.g. "two hundred and ninety-four euros"). Ask one question at a time.'
+    : 'WHATSAPP MESSAGE. Warm, polished and brief (max ~70 words). Light formatting is fine. No emoji.';
+  const today = new Date().toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  return `You are ${A()}, the AI receptionist for ${coName.value||'a cleaning company'}. Today is ${today}.
+Channel: ${channel}
+
+BUSINESS INFORMATION (the only facts you may use):
+${kb.value}
+
+HOW TO WORK
+- Answer questions using only the business information. If something isn't covered, say you'll check with the team and set a handoff.
+- Give price estimates by calculating from the price list and show the basis briefly (e.g. 70 m² × €4.20). Say the final price is confirmed on the day if the size differs.
+- To book, collect: name, phone number, address with postcode, service, size (m² or rooms), preferred date and time slot. Ask for missing items one or two at a time.
+- Before booking, read back the details and price and ask the customer to confirm. Only after they say yes, fill "booking".
+- Hand over to a human (fill "handoff") for: complaints, damage, refunds, office cleaning, areas not served, angry customers, or if asked for a person. Tell the customer a person will call back today.
+- Reply in the same language the customer uses.
+- Never invent prices, dates or services. Never ask for card details.
+
+OUTPUT: Reply with ONLY a JSON object, no other text:
+{"reply": string, "status": "chatting"|"quoted"|"booked"|"handoff",
+ "booking": null | {"name":string,"phone":string,"address":string,"service":string,"size":string,"when":string,"estimate_eur":number,"notes":string},
+ "handoff": null | {"reason":string,"summary":string,"callback":string}}`;
+}
+
+function money(n){ return '€' + Math.round(n).toLocaleString('en-GB'); }
+function renderStats(){ $('sVal').textContent=money(stats.val); $('sBook').textContent=stats.book; $('sHand').textContent=stats.hand; }
+function addRow(kind, d){
+  $('emptyInbox')?.remove();
+  const time = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  const ch = mode==='call'?'CALL':'WHATSAPP';
+  const r=document.createElement('article'); r.className='row'+(kind==='handoff'?' handoff':'');
+  const dot=document.createElement('div'); dot.className='dot'; dot.appendChild(document.createElement('i'));
+  const body=document.createElement('div'); body.className='rbody';
+  const top=document.createElement('div'); top.className='rtop';
+  const title=document.createElement('b'); const right=document.createElement('span');
+  const p=document.createElement('p'); const meta=document.createElement('span'); meta.className='meta';
+  if (kind==='booking'){
+    title.textContent = [d.service, d.size].filter(Boolean).join(' · ') || 'New booking';
+    right.className='amt'; right.textContent = d.estimate_eur!=null ? money(Number(d.estimate_eur)||0) : '';
+    p.textContent = [d.name, d.when, d.address].filter(Boolean).join(' · ');
+    meta.textContent = [ch+' · '+time, d.phone].filter(Boolean).join(' · ');
+    stats.book++; stats.val += Number(d.estimate_eur)||0;
+  } else {
+    title.textContent = 'Call back' + (d.callback ? '' : ' customer');
+    right.className='flag'; right.textContent='NEEDS YOU · '+time;
+    p.textContent = [d.reason, d.summary].filter(Boolean).join('. ');
+    meta.textContent = d.callback ? 'CALLBACK · '+d.callback : ch;
+    stats.hand++;
+  }
+  top.append(title,right); body.append(top,p,meta); r.append(dot,body);
+  $('inbox').prepend(r); renderStats();
+}
+
+function pickVoice(lang){
+  const vs=(window.speechSynthesis&&speechSynthesis.getVoices())||[];
+  return vs.find(v=>v.lang&&v.lang.toLowerCase().startsWith(lang)&&/female|anna|samantha|google|natural|neural/i.test(v.name)) || vs.find(v=>v.lang&&v.lang.toLowerCase().startsWith(lang)) || null;
+}
+function speak(text){
+  return new Promise(res=>{
+    if (!('speechSynthesis' in window) || mode!=='call'){ res(); return; }
+    try{
+      speechSynthesis.cancel();
+      const de=/[äöüß]|\b(ich|Sie|und|nicht|gerne|Reinigung|Euro)\b/i.test(text);
+      const u=new SpeechSynthesisUtterance(text); u.lang=de?'de-DE':'en-GB'; const v=pickVoice(de?'de':'en'); if(v) u.voice=v; u.rate=1.02;
+      const o=$('orb'); o.classList.add('speaking');
+      const done=()=>{o.classList.remove('speaking'); res();};
+      u.onend=u.onerror=done; speechSynthesis.speak(u); setTimeout(done,30000);
+    }catch(e){ res(); }
+  });
+}
+
+async function ensureAI(){
+  if (aiChecked) return aiReady;
+  aiChecked=true;
+  try{ sample = window.claude ? await window.claude.use('sample') : null; }catch(e){ sample=null; }
+  aiReady=!!sample; if(!aiReady) $('noAI').hidden=false; return aiReady;
+}
+
+async function send(text){
+  text=(text||'').trim();
+  if (!text || busy || playing) return;
+  if (mode==='call' && !inCall) return;
+  $('input').value='';
+  add('cust', text); turns.push({role:'user',content:text});
+  busy=true; $('send').disabled=true;
+  if (!(await ensureAI())){ busy=false; $('send').disabled=false; add('sys','Live AI is off here. Press Play sample to see the scripted demo.'); return; }
+  const t=thinking(); status(A()+' is thinking…');
+  ctl=new AbortController();
+  try{
+    const res=await sample.json([{role:'user',content:rules()}, ...turns.slice(-24)], {modelTier:'quick', cache:false, signal:ctl.signal});
+    const reply=(res&&typeof res.reply==='string'&&res.reply.trim())?res.reply.trim():'Sorry, could you say that again?';
+    settle(t, reply); turns.push({role:'assistant',content:reply});
+    if (res&&res.booking&&typeof res.booking==='object') addRow('booking',res.booking);
+    if (res&&res.handoff&&typeof res.handoff==='object') addRow('handoff',res.handoff);
+    status(res&&res.status ? 'Status · '+res.status : 'Ready');
+    await speak(reply);
+  }catch(e){
+    t.parentElement.remove(); turns.pop();
+    const map={not_granted:'The page wasn’t allowed to use Claude. Press Play sample instead.',rate_limited:'Too many messages too quickly. Wait a moment, then send again.',session_expired:'Sign in to Claude again, then resend.',cancelled:'Stopped.',invalid_json:'The answer came back garbled. Send the message again.'};
+    add('sys', map[e&&e.code] || 'Mia couldn’t answer just now. Send the message again.');
+    if (e&&(e.code==='not_granted'||e.code==='sampling_disabled')){ aiReady=false; $('noAI').hidden=false; }
+    status('Ready');
+  }finally{ busy=false; $('send').disabled=false; }
+}
+$('composer').addEventListener('submit', e=>{e.preventDefault(); send($('input').value);});
+$('input').addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); send($('input').value);} });
+
+function fmt(s){ return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+function stopCall(log){
+  if (callTick) clearInterval(callTick); callTick=null;
+  if (log && inCall) add('sys','CALL ENDED · '+fmt(Math.floor((Date.now()-callStart)/1000)));
+  inCall=false; try{ window.speechSynthesis&&speechSynthesis.cancel(); }catch(e){}
+  $('orb').classList.remove('speaking');
+}
+function setWho(){
+  const w=$('whoLine'); w.textContent='';
+  if (mode==='message'){ w.textContent='WhatsApp · replies in seconds'; return; }
+  if (!inCall){ w.textContent='Phone line · waiting for a call'; return; }
+  const s=document.createElement('span'); s.id='timer'; s.textContent='On call · +49 30 5555 0142 · 00:00';
+  const h=document.createElement('button'); h.type='button'; h.className='hang'; h.textContent='End call'; h.style.marginLeft='10px';
+  h.onclick=()=>{ stopCall(true); setWho(); $('foot').hidden=true; status('Call ended'); };
+  w.append(s,h);
+}
+function resetConvo(){
+  try{ctl&&ctl.abort();}catch(e){}
+  playing=false; stopCall(false);
+  thread.textContent=''; turns=[]; busy=false; $('send').disabled=false;
+  const call = mode==='call';
+  $('callstart').hidden=!call; thread.hidden=call; $('foot').hidden=call;
+  if (!call){ const g=greeting(); add('agent',g); turns.push({role:'assistant',content:g}); }
+  setWho(); renderChips(); status('Ready');
+}
+function setMode(m){
+  mode=m; $('tabMsg').setAttribute('aria-selected',m==='message'); $('tabCall').setAttribute('aria-selected',m==='call');
+  $('input').placeholder = m==='call' ? 'Type what the caller says…' : 'Write as the customer…';
+  resetConvo();
+}
+$('tabMsg').onclick=()=>setMode('message');
+$('tabCall').onclick=()=>setMode('call');
+$('reset').onclick=resetConvo;
+$('startCall').onclick=async()=>{
+  inCall=true; callStart=Date.now();
+  $('callstart').hidden=true; thread.hidden=false; $('foot').hidden=false; setWho();
+  callTick=setInterval(()=>{ const t=$('timer'); if(t) t.textContent='On call · +49 30 5555 0142 · '+fmt(Math.floor((Date.now()-callStart)/1000)); },1000);
+  add('sys','CALL CONNECTED');
+  const g=greeting(); add('agent',g); turns.push({role:'assistant',content:g});
+  ensureAI(); await speak(g);
+};
+
+const SCRIPT=[
+  ['cust','Hi, I’m moving out of my flat in Lankwitz at the end of the month. What does an end-of-tenancy clean cost for 62 m²?'],
+  ['agent','For 62 m² an end-of-tenancy clean comes to €341 (62 × €5.50). That already includes the inside of the oven and fridge. Shall I find you a date?'],
+  ['cust','Yes please. Saturday the 28th, morning if possible.'],
+  ['agent','Saturday at 08:00 is free. To reserve it I just need your name, phone number and the full address with postcode.'],
+  ['cust','Lena Hoffmann, 0176 5550 2231, Kaulbachstraße 14, 12247 Berlin. There’s also a balcony.'],
+  ['agent','Thank you, Lena. Here is your booking:\nEnd-of-tenancy clean, 62 m² + balcony\nSaturday 28th, 08:00\nKaulbachstraße 14, 12247 Berlin\n€371 in total (€341 + €30 balcony), paid after the job.\nShall I confirm it?'],
+  ['cust','Yes, confirm.'],
+  ['agent','Confirmed. You’ll receive an SMS shortly, and you can cancel free of charge up to 24 hours before. Anything else I can help with?', {booking:{name:'Lena Hoffmann',phone:'0176 5550 2231',address:'12247 Lankwitz',service:'End-of-tenancy',size:'62 m²',when:'Sat 28, 08:00',estimate_eur:371}}],
+  ['cust','Actually, one more thing. Last time your team scratched my parquet floor.'],
+  ['agent','I’m sorry to hear that, Lena. I’ve passed this straight to Jonas, our owner, and he’ll call you back today to put it right.', {handoff:{reason:'Reports a scratched parquet floor from the last visit',summary:'Promised a call back today',callback:'0176 5550 2231'}}]
+];
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+$('autoplay').onclick=async()=>{
+  if (playing) return;
+  if (mode!=='message') setMode('message'); else resetConvo();
+  playing=true; status('Playing sample conversation');
+  for (const [who,text,extra] of SCRIPT){
+    if (!playing) return;
+    if (who==='agent'){ const t=thinking(); await wait(1200); if(!playing) return; settle(t,text); }
+    else { await wait(900); if(!playing) return; add('cust',text); }
+    if (extra&&extra.booking) addRow('booking',extra.booking);
+    if (extra&&extra.handoff) addRow('handoff',extra.handoff);
+  }
+  playing=false; status('Sample finished · type to continue live');
+};
+
+renderStats(); setMode('message');
+(async()=>{ try{ if(!window.claude){ $('noAI').hidden=false; return; } const s=await window.claude.use('sample'); sample=s; aiChecked=true; aiReady=!!s; if(!s) $('noAI').hidden=false; }catch(e){} })();
+})();
+</script>
