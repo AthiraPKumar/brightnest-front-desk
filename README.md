@@ -2,20 +2,42 @@
 
 An AI receptionist that answers customer calls and WhatsApp messages for a cleaning company:
 it quotes from the price list, books jobs, and hands complaints to the owner.
+It is a concept demo for a fictional company, and every chat starts by saying so.
+
+Live demo: https://brightnest-front-desk.vercel.app/
 
 ## What's in this repo
-- `index.html` — the demo page (the hosted website). Double-click to open it locally.
-  Outside Claude, use **Play sample** to run the scripted conversation.
-  Live AI replies only work in the published version on Claude:
+- `index.html` — the demo page (the hosted website).
+- `api/chat.js` — Vercel serverless function that gives the hosted site live replies from xAI Grok.
+- `artifact/artifact-source.html` — the exact source published to Claude (same page without the HTML wrapper):
   https://claude.ai/artifact/JVmga8kPUNuQHtAMgFQhue
-- `artifact/artifact-source.html` — the exact source published to Claude (same page without the HTML wrapper).
+- `.env.example` — the environment variables the function reads.
 - `docs/PLAN.md` — recommended stack (Grok Voice Agent + Twilio + WhatsApp), phases and notes.
 - Design file: "AI Front Desk — Cleaning Co." in Paper.
 
-## Hosting
-It's a single static page with no build step. Deploy the repo root as-is:
-- **GitHub Pages:** Settings → Pages → Deploy from a branch → `main` / `(root)`. (`.nojekyll` is included.)
-- **Netlify / Vercel / Cloudflare Pages:** import the repo, no build command, publish directory `/` (root).
+## Where live AI comes from
+| Where the page runs | Live replies | If unavailable |
+|---|---|---|
+| Claude Artifact | Claude, via `window.claude` | **Play sample** |
+| Vercel | Grok, via `POST /api/chat` | **Play sample** |
+| Opened as a file / plain static host | none | **Play sample** |
+
+## Hosting on Vercel (with live Grok replies)
+1. Import the repo on Vercel. Framework preset **Other**, no build command, root directory `/`.
+   Vercel serves `index.html` and deploys `api/chat.js` as a function automatically.
+2. In **Settings → Environment Variables**, add `XAI_API_KEY` (your key from console.x.ai).
+   Optional: `XAI_MODEL` to change the model (default `grok-4.20-0309-non-reasoning`).
+3. Redeploy. Every push to `main` redeploys.
+
+The key is only read on the server. It is never sent to the browser, and it must never be committed:
+`.env` files are git-ignored, and only `.env.example` (no values) is tracked.
+
+`api/chat.js` limits: POST only, at most 30 messages of 1,200 characters each, a 12,000-character
+business setup, and about 15 requests per minute / 300 per day per IP. The rate limit is held in
+memory per function instance, so it is best-effort. Add a shared store such as Vercel KV for a hard limit.
+
+GitHub Pages, Netlify and Cloudflare Pages also serve the page as-is, but without the function,
+so they only offer **Play sample**.
 
 ## Editing the demo for a prospect
 Open the page → scroll to **Business setup** → change company name, assistant name and the

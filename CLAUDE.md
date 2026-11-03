@@ -4,20 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A sales demo of an AI receptionist ("front desk") for a cleaning company: it quotes from a price list, books jobs, and hands complaints to the owner, over a simulated phone call or WhatsApp chat. There is no build, lint, or test tooling. The whole demo is one self-contained HTML page (inline CSS + JS, Google Fonts only). `docs/PLAN.md` holds the roadmap for the real product (Grok Voice Agent + Twilio + WhatsApp). None of that is implemented in this repo yet.
+A sales demo of an AI receptionist ("front desk") for a cleaning company: it quotes from a price list, books jobs, and hands complaints to the owner, over a simulated phone call or WhatsApp chat. There is no build, lint, or test tooling. The demo is one self-contained HTML page (inline CSS + JS, Google Fonts only), plus one Vercel serverless function, `api/chat.js`, that gives the hosted site live Grok replies. `docs/PLAN.md` holds the roadmap for the real product (Grok Voice Agent + Twilio + WhatsApp). The voice and WhatsApp parts are not implemented yet.
 
 ## The two copies of the page
 
-- `index.html` (repo root) is the hosted static website. The repo root is the publish directory for GitHub Pages, Netlify, Vercel and similar hosts. There is no build step, and `.nojekyll` turns off Jekyll on GitHub Pages. Keep the page self-contained: hosts serve the root as-is, so it should not depend on any other file in the repo.
+- `index.html` (repo root) is the hosted static website. The repo root is the publish directory for GitHub Pages, Netlify, Vercel and similar hosts. There is no build step, and `.nojekyll` turns off Jekyll on GitHub Pages. Keep the page self-contained: hosts serve the root as-is, so it should not depend on any other file in the repo. The only exception is the optional `/api/chat` call, which the page survives without.
 - `artifact/artifact-source.html` is the same content without the doctype/head/body wrapper (the 8 header lines and the closing `</body></html>`). It is published as a Claude Artifact at https://claude.ai/artifact/JVmga8kPUNuQHtAMgFQhue, and the Artifact host adds the wrapper at publish time.
 
-Apply every change to both files. Apart from the wrapper, they should diff clean. After changing the artifact copy, republish it to the existing URL using the Artifact tool's `url`. Live AI only works inside the Claude Artifact. The hosted site falls back to the scripted **Play sample** demo.
+Apply every change to both files. Apart from the wrapper, they should diff clean. After changing the artifact copy, republish it to the existing URL using the Artifact tool's `url`. Live AI comes from Claude inside the Artifact and from Grok via `/api/chat` on Vercel. Anywhere else, the page falls back to the scripted **Play sample** demo.
+
+## The Grok function (`api/chat.js`)
+
+- Vercel Node function in CommonJS (`module.exports`). There is no `package.json` and there are no dependencies, and it uses the global `fetch`.
+- Takes `POST {system, messages}`, where `system` is `rules()` and `messages` are user/assistant turns. It calls `https://api.x.ai/v1/chat/completions` with `response_format: {type:'json_object'}` and returns the normalised `{reply, status, booking, handoff}`. Errors come back as `{error:{code, message}}` with a 4xx or 5xx status.
+- A fixed server-side `GUARD` prompt goes before the page's prompt. It keeps the assistant on topic and professional and makes it say it is an AI. The browser cannot override it.
+- Environment: `XAI_API_KEY` (required, set in Vercel, never in the page or git) and `XAI_MODEL` (optional, default `grok-4.20-0309-non-reasoning`). `.env.example` lists both with no values. `.gitignore` ignores `.env*` except `.env.example`.
+- Limits live in `LIMITS`: 30 messages, 1,200 characters per message, 12,000-character system prompt, 15 requests per minute and 300 per day per IP (in memory, per instance, best-effort), and a 25 s upstream timeout. The page's textarea has `maxlength="1200"` to match.
 
 ## How the page works (script at the bottom of the file)
 
 - **Business knowledge base:** `DEFAULT_KB` is a plain-text block with prices, area, availability and policies for a sample Berlin business. The **Business setup** section lets a user edit the company name, assistant name (default "Mia") and KB. These edits are saved to `localStorage` (`fd.kb`, `fd.co`, `fd.agent`) through a try/catch `store` wrapper. The agent may only quote facts that appear in the KB.
 - **Prompt:** `rules()` builds the system prompt from the KB, the current channel (`mode` is `'call'` or `'message'`, and each mode has its own style rules), and today's date. It requires the model to answer with a strict JSON object: `{reply, status, booking, handoff}`.
-- **Live AI:** this goes through the Artifact runtime's sampling capability. `window.claude.use('sample')` returns a handle, and `sample.json([...], {modelTier:'quick'})` is called with the prompt plus the last 24 turns. This only works inside the published artifact. Opened locally, `#noAI` is shown and only **Play sample** works.
+- **Live AI:** `ensureAI()` picks a `backend`, and `askAI()` sends the prompt plus the last 24 turns to it.
+  - `'claude'`: used when `window.claude` exists. It goes through the Artifact runtime's sampling capability, where `window.claude.use('sample')` returns a handle and `sample.json([...], {modelTier:'quick'})` is called.
+  - `'api'`: used when `window.claude` does not exist. It calls `POST /api/chat`.
+  - Hard failures (`not_granted`, `sampling_disabled`, `api_unreachable`, `not_configured`) call `aiOff()`, which shows `#noAI`. After that, only **Play sample** works.
+- **AI disclosure:** every conversation starts with the `DISCLOSE` system line, which says the customer is talking to an AI assistant in a concept demo for a fictional company. It appears in message mode in `resetConvo()` and in call mode on connect. Keep it.
 - **Scripted fallback:** the `SCRIPT` array drives **Play sample**, which plays a canned conversation without AI.
 - **Owner's ledger:** when a response includes `booking` or `handoff`, `addRow()` adds a row and `renderStats()` updates the totals (booked value, bookings, handoffs).
 - **Call mode:** replies are spoken with the browser's `speechSynthesis` (see `speak()` and `pickVoice()`).

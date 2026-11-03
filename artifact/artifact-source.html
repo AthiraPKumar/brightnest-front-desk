@@ -183,7 +183,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
   <div>
     <div class="live mono"><i></i><span id="liveLine">Online · answering calls and WhatsApp 24/7</span></div>
     <h1>Every call answered. <em>Every booking</em> captured.</h1>
-    <div id="noAI" hidden>Live AI replies aren't available in this view. “Play sample” runs a scripted conversation instead. For live replies, open the page while signed in to Claude and allow it to use Claude.</div>
+    <div id="noAI" hidden>Live AI replies aren't available right now. “Play sample” runs a scripted conversation instead.</div>
   </div>
   <p class="lede" id="lede">Mia quotes from your price list, books the slot and hands complaints to you. In German or English, by phone or by message.</p>
 </div></header>
@@ -211,7 +211,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
     <div class="foot" id="foot">
       <div class="chips" id="chips"></div>
       <form class="composer" id="composer">
-        <textarea id="input" rows="1" placeholder="Write as the customer…" aria-label="Customer message"></textarea>
+        <textarea id="input" rows="1" maxlength="1200" placeholder="Write as the customer…" aria-label="Customer message"></textarea>
         <button class="send" id="send" type="submit" aria-label="Send"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8 H13 M9 4 L13 8 L9 12" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </form>
       <div class="status" id="status">Ready</div>
@@ -302,7 +302,8 @@ $('resetKb').onclick = ()=>{kb.value = DEFAULT_KB; store.set('fd.kb', DEFAULT_KB
 syncNames();
 
 let mode = 'message', turns = [], busy = false, ctl = null;
-let sample = null, aiReady = false, aiChecked = false;
+let sample = null, aiReady = false, aiChecked = false, backend = null; // backend: 'claude' (Artifact runtime) | 'api' (/api/chat on Vercel)
+const DISCLOSE = 'You’re talking to an AI assistant · concept demo for a fictional company';
 let stats = {book:0, hand:0, val:0};
 let callStart = 0, callTick = null, inCall = false, playing = false;
 const thread = $('thread');
@@ -410,8 +411,25 @@ function speak(text){
 async function ensureAI(){
   if (aiChecked) return aiReady;
   aiChecked=true;
-  try{ sample = window.claude ? await window.claude.use('sample') : null; }catch(e){ sample=null; }
-  aiReady=!!sample; if(!aiReady) $('noAI').hidden=false; return aiReady;
+  if (window.claude){
+    try{ sample = await window.claude.use('sample'); }catch(e){ sample=null; }
+    backend = sample ? 'claude' : null;
+  } else backend = 'api';
+  aiReady=!!backend; if(!aiReady) $('noAI').hidden=false; return aiReady;
+}
+function aiOff(){ aiReady=false; backend=null; $('noAI').hidden=false; }
+async function askAI(msgs){
+  if (backend==='claude') return sample.json([{role:'user',content:rules()}, ...msgs], {modelTier:'quick', cache:false, signal:ctl.signal});
+  let r, data=null;
+  try{
+    r = await fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({system:rules(), messages:msgs}), signal:ctl.signal});
+  }catch(e){ throw {code: e&&e.name==='AbortError' ? 'cancelled' : 'api_unreachable'}; }
+  try{ data = await r.json(); }catch(e){}
+  if (!r.ok || !data || data.error){
+    const err = data && data.error;
+    throw {code: (err&&err.code) || (r.status===404||r.status===405||!data ? 'api_unreachable' : 'upstream_error'), message: err&&err.message};
+  }
+  return data;
 }
 
 async function send(text){
@@ -425,7 +443,7 @@ async function send(text){
   const t=thinking(); status(A()+' is thinking…');
   ctl=new AbortController();
   try{
-    const res=await sample.json([{role:'user',content:rules()}, ...turns.slice(-24)], {modelTier:'quick', cache:false, signal:ctl.signal});
+    const res=await askAI(turns.slice(-24).map(m=>({role:m.role, content:m.content.slice(0,1200)})));
     const reply=(res&&typeof res.reply==='string'&&res.reply.trim())?res.reply.trim():'Sorry, could you say that again?';
     settle(t, reply); turns.push({role:'assistant',content:reply});
     if (res&&res.booking&&typeof res.booking==='object') addRow('booking',res.booking);
@@ -434,9 +452,10 @@ async function send(text){
     await speak(reply);
   }catch(e){
     t.parentElement.remove(); turns.pop();
-    const map={not_granted:'The page wasn’t allowed to use Claude. Press Play sample instead.',rate_limited:'Too many messages too quickly. Wait a moment, then send again.',session_expired:'Sign in to Claude again, then resend.',cancelled:'Stopped.',invalid_json:'The answer came back garbled. Send the message again.'};
-    add('sys', map[e&&e.code] || 'Mia couldn’t answer just now. Send the message again.');
-    if (e&&(e.code==='not_granted'||e.code==='sampling_disabled')){ aiReady=false; $('noAI').hidden=false; }
+    const off='Live AI isn’t available here. Press Play sample to see the scripted demo.';
+    const map={not_granted:'The page wasn’t allowed to use Claude. Press Play sample instead.',sampling_disabled:off,api_unreachable:off,not_configured:off,rate_limited:'Too many messages too quickly. Wait a moment, then send again.',session_expired:'Sign in to Claude again, then resend.',cancelled:'Stopped.',invalid_json:'The answer came back garbled. Send the message again.'};
+    add('sys', map[e&&e.code] || (e&&e.message) || A()+' couldn’t answer just now. Send the message again.');
+    if (e&&['not_granted','sampling_disabled','api_unreachable','not_configured'].includes(e.code)) aiOff();
     status('Ready');
   }finally{ busy=false; $('send').disabled=false; }
 }
@@ -465,7 +484,7 @@ function resetConvo(){
   thread.textContent=''; turns=[]; busy=false; $('send').disabled=false;
   const call = mode==='call';
   $('callstart').hidden=!call; thread.hidden=call; $('foot').hidden=call;
-  if (!call){ const g=greeting(); add('agent',g); turns.push({role:'assistant',content:g}); }
+  if (!call){ add('sys',DISCLOSE); const g=greeting(); add('agent',g); turns.push({role:'assistant',content:g}); }
   setWho(); renderChips(); status('Ready');
 }
 function setMode(m){
@@ -480,7 +499,7 @@ $('startCall').onclick=async()=>{
   inCall=true; callStart=Date.now();
   $('callstart').hidden=true; thread.hidden=false; $('foot').hidden=false; setWho();
   callTick=setInterval(()=>{ const t=$('timer'); if(t) t.textContent='On call · +49 30 5555 0142 · '+fmt(Math.floor((Date.now()-callStart)/1000)); },1000);
-  add('sys','CALL CONNECTED');
+  add('sys','CALL CONNECTED'); add('sys',DISCLOSE);
   const g=greeting(); add('agent',g); turns.push({role:'assistant',content:g});
   ensureAI(); await speak(g);
 };
@@ -513,6 +532,6 @@ $('autoplay').onclick=async()=>{
 };
 
 renderStats(); setMode('message');
-(async()=>{ try{ if(!window.claude){ $('noAI').hidden=false; return; } const s=await window.claude.use('sample'); sample=s; aiChecked=true; aiReady=!!s; if(!s) $('noAI').hidden=false; }catch(e){} })();
+(async()=>{ try{ if(!window.claude) return; const s=await window.claude.use('sample'); sample=s; aiChecked=true; aiReady=!!s; backend=s?'claude':null; if(!s) $('noAI').hidden=false; }catch(e){} })();
 })();
 </script>
