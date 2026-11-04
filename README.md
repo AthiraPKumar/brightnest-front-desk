@@ -9,6 +9,7 @@ Live demo: https://brightnest-front-desk.vercel.app/
 ## What's in this repo
 - `index.html` — the demo page (the hosted website).
 - `api/chat.js` — Vercel serverless function that gives the hosted site live replies from xAI Grok.
+- `api/voice-token.js` — Vercel serverless function that gives the page a short-lived token for microphone calls through Grok Voice.
 - `artifact/artifact-source.html` — the exact source published to Claude (same page without the HTML wrapper):
   https://claude.ai/artifact/JVmga8kPUNuQHtAMgFQhue
 - `.env.example` — the environment variables the function reads.
@@ -39,9 +40,23 @@ memory per function instance, so it is best-effort. Add a shared store such as V
 GitHub Pages, Netlify and Cloudflare Pages also serve the page as-is, but without the function,
 so they only offer **Play sample**.
 
+## Microphone calls (Grok Voice)
+On Vercel, **Phone call** talks to Grok Voice through the browser's microphone. It uses the same
+`xAI_API_New` key. The key needs permission for voice, and the xAI team needs credits.
+Grok Voice costs about $0.08 per minute. Check current prices on xAI's site.
+Optional: `XAI_VOICE_MODEL` (default `grok-voice-3.0`) and `XAI_VOICE` (default `ara`).
+
+If voice can't start, or the page runs anywhere else, the call falls back to typing, with replies
+spoken by the browser. Inside the Claude Artifact, calls always use typing.
+
+Cost and safety limits: 3 calls per minute and 20 per day per IP (best-effort), and a 5-minute limit
+per call that the page enforces. The browser sets up the voice session, so someone technical could
+change Mia's instructions or keep a call open longer. **Set a spending limit in the xAI console.**
+
 ## Editing the demo for a prospect
 Open the page → scroll to **Business setup** → change company name, assistant name and the
 price list. The agent only quotes what is written there. Changes are saved in your browser.
 
 ## Next step
 Phase 2: a real phone number (Grok Voice Agent + Twilio) that prospects can call during a demo.
+The browser microphone call doesn't use a phone number.

@@ -212,7 +212,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
       <div class="orb" aria-hidden="true"></div>
       <span class="mono" style="color:var(--lichen)">Incoming call</span>
       <span class="num">+49 30 5555 0142</span>
-      <p>Mia answers out loud through your speakers. Type what the caller says, or tap a suggestion. On the live phone line the caller simply talks.</p>
+      <p>Talk to Mia through your microphone. If voice isn’t available here, type what the caller says or tap a suggestion. Calls are limited to 5 minutes.</p>
       <button type="button" class="answer" id="startCall">Let Mia answer</button>
     </div>
     <div class="thread" id="thread" aria-live="polite"></div>
@@ -344,9 +344,9 @@ const CHIPS = {
 };
 function renderChips(){ const b=$('chips'); b.textContent=''; CHIPS[mode].forEach(t=>{const x=document.createElement('button');x.type='button';x.textContent=t;x.onclick=()=>send(t);b.appendChild(x);}); }
 
-function rules(){
+function rules(voiced){
   const channel = mode==='call'
-    ? 'PHONE CALL. Your reply is spoken aloud by text-to-speech. Use 1–2 short, natural spoken sentences. No lists, no emoji, no markdown; say prices as words (e.g. "two hundred and ninety-four euros"). Ask one question at a time.'
+    ? 'PHONE CALL. Your reply is spoken aloud by text-to-speech. Use 1–2 short, natural spoken sentences. No lists, no emoji, no markdown; say prices as words (e.g. "two hundred and ninety-four euros"). Ask one question at a time.'+(voiced?' Speak with a natural American English accent.':'')
     : 'WHATSAPP MESSAGE. Warm, polished and brief (max ~70 words). Light formatting is fine. No emoji.';
   const today = new Date().toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   return `You are ${A()}, the AI receptionist for ${coName.value||'a cleaning company'}. Today is ${today}.
@@ -372,10 +372,10 @@ HOW TO WORK
 - Always reply in English. If the customer uses another language, reply in English and briefly say this demo is in English only.
 - Never invent prices, dates or services. Never ask for card details.
 
-OUTPUT: Reply with ONLY a JSON object, no other text:
+${voiced ? `TOOLS: You are speaking live, so never say JSON or field names aloud. Where these instructions say to fill "booking", call save_booking. Where they say to fill "handoff", call save_handoff. Ignore the instruction about status. Keep talking to the caller normally after a tool call.` : `OUTPUT: Reply with ONLY a JSON object, no other text:
 {"reply": string, "status": "chatting"|"quoted"|"booked"|"handoff",
  "booking": null | {"name":string,"phone":string,"address":string,"service":string,"size":string,"when":string,"estimate_eur":number,"notes":string},
- "handoff": null | {"reason":string,"summary":string,"callback":string}}`;
+ "handoff": null | {"reason":string,"summary":string,"callback":string}}`}`;
 }
 
 function money(n){ return '€' + Math.round(n).toLocaleString('en-GB'); }
@@ -453,6 +453,12 @@ async function send(text){
   text=(text||'').trim();
   if (!text || busy || playing) return;
   if (mode==='call' && !inCall) return;
+  if (voice&&voice.ready){
+    $('input').value=''; voiceHush(voice); voice.skip=false; voice.cust=null; voice.agent=null; add('cust',text);
+    voiceSend(voice,{type:'conversation.item.create', item:{type:'message', role:'user', content:[{type:'input_text', text}]}});
+    voiceSend(voice,{type:'response.create'});
+    return;
+  }
   $('input').value='';
   add('cust', text); turns.push({role:'user',content:text});
   busy=true; $('send').disabled=true;
@@ -466,7 +472,7 @@ async function send(text){
     if (res&&res.booking&&typeof res.booking==='object') addRow('booking',res.booking);
     if (res&&res.handoff&&typeof res.handoff==='object') addRow('handoff',res.handoff);
     status(res&&res.status ? 'Status · '+(res.status==='booked'?'request captured':res.status) : 'Ready');
-    await speak(reply);
+    speak(reply);
   }catch(e){
     t.parentElement.remove(); turns.pop();
     const off='Live AI isn’t available here. Press Play sample to see the scripted demo.';
@@ -479,8 +485,135 @@ async function send(text){
 $('composer').addEventListener('submit', e=>{e.preventDefault(); send($('input').value);});
 $('input').addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); send($('input').value);} });
 
+// Live microphone calls through Grok Voice, on hosts that serve /api/voice-token.
+const VOICE_RATES = [8000,16000,22050,24000,32000,44100,48000], VOICE_MAX_MS = 300000;
+const VOICE_TOOLS = [
+  {type:'function', name:'save_booking', description:'Save a booking request once the caller has said the repeated details are right.', parameters:{type:'object', properties:{name:{type:'string'},phone:{type:'string'},address:{type:'string',description:'District'},service:{type:'string'},size:{type:'string'},when:{type:'string',description:'Date and slot'},estimate_eur:{type:'number'},notes:{type:'string'}}, required:['name','phone','address','service','when']}},
+  {type:'function', name:'save_handoff', description:'Leave a message for the owner or team.', parameters:{type:'object', properties:{reason:{type:'string'},summary:{type:'string'},callback:{type:'string'}}, required:['reason','summary']}}
+];
+let voice = null;
+function pcmToB64(f32){
+  const bytes=new Uint8Array(f32.length*2), d=new DataView(bytes.buffer);
+  for (let i=0;i<f32.length;i++) d.setInt16(i*2, Math.max(-1,Math.min(1,f32[i]))*32767, true);
+  let s=''; for (let i=0;i<bytes.length;i+=8192) s+=String.fromCharCode.apply(null, bytes.subarray(i,i+8192));
+  return btoa(s);
+}
+function b64ToPcm(b64){
+  const s=atob(b64), d=new DataView(new ArrayBuffer(s.length));
+  for (let i=0;i<s.length;i++) d.setUint8(i, s.charCodeAt(i));
+  const f=new Float32Array(s.length>>1);
+  for (let i=0;i<f.length;i++) f[i]=d.getInt16(i*2,true)/32768;
+  return f;
+}
+function voiceSend(v,msg){ if (v.ws&&v.ws.readyState===1) v.ws.send(JSON.stringify(msg)); }
+function voicePlay(v,b64){
+  const pcm=b64ToPcm(b64); if (!pcm.length) return;
+  const buf=v.ctx.createBuffer(1,pcm.length,v.ctx.sampleRate); buf.copyToChannel(pcm,0);
+  const src=v.ctx.createBufferSource(); src.buffer=buf; src.connect(v.ctx.destination);
+  const at=Math.max(v.ctx.currentTime+0.03, v.next); src.start(at); v.next=at+buf.duration;
+  v.playing.add(src); $('orb').classList.add('speaking');
+  src.onended=()=>{ v.playing.delete(src); if(!v.playing.size) $('orb').classList.remove('speaking'); };
+}
+function voiceHush(v){
+  v.playing.forEach(s=>{ try{ s.onended=null; s.stop(); }catch(e){} });
+  v.playing.clear(); v.next=0; $('orb').classList.remove('speaking');
+}
+function voiceClose(v){
+  if (!v||v.closed) return;
+  v.closed=true; if (voice===v) voice=null;
+  clearTimeout(v.timer); voiceHush(v);
+  try{ if(v.proc){ v.proc.onaudioprocess=null; v.proc.disconnect(); } }catch(e){}
+  try{ v.stream&&v.stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+  try{ v.ws&&v.ws.close(); }catch(e){}
+  try{ v.ctx.close(); }catch(e){}
+}
+function voiceEndCall(){ stopCall(true); setWho(); $('foot').hidden=true; status('Call ended'); }
+function voiceMic(v){
+  const src=v.ctx.createMediaStreamSource(v.stream), mute=v.ctx.createGain(); mute.gain.value=0;
+  v.proc=v.ctx.createScriptProcessor(4096,1,1);
+  v.proc.onaudioprocess=e=>voiceSend(v,{type:'input_audio_buffer.append', audio:pcmToB64(e.inputBuffer.getChannelData(0))});
+  src.connect(v.proc); v.proc.connect(mute); mute.connect(v.ctx.destination);
+}
+function voiceEvent(v,e,ready){
+  switch(e.type){
+    case 'session.updated':
+      if (v.ready) break;
+      v.ready=true; ready(true);
+      { const g=greeting(); add('agent',g); turns.push({role:'assistant',content:g});
+        voiceSend(v,{type:'conversation.item.create', item:{type:'force_message', role:'assistant', interruptible:false, content:[{type:'output_text', text:g}]}}); }
+      voiceMic(v);
+      v.timer=setTimeout(()=>{ add('sys','This demo limits calls to 5 minutes.'); voiceEndCall(); }, VOICE_MAX_MS);
+      $('input').placeholder='Speak, or type what the caller says…'; status('On call · speak any time');
+      break;
+    case 'input_audio_buffer.speech_started':
+      voiceHush(v); v.skip=false; v.cust=null; v.agent=null; status('Listening…'); break;
+    case 'input_audio_buffer.speech_stopped':
+      if (!v.cust) v.cust=add('cust','…');
+      status(A()+' is thinking…'); break;
+    case 'conversation.item.input_audio_transcription.updated':
+    case 'conversation.item.input_audio_transcription.completed':
+      if (e.transcript){ if(!v.cust) v.cust=add('cust',e.transcript); else v.cust.textContent=e.transcript; thread.scrollTop=thread.scrollHeight; }
+      break;
+    case 'response.output_audio.delta':
+    case 'response.audio.delta':
+      if (e.delta) voicePlay(v,e.delta);
+      break;
+    case 'response.output_audio_transcript.delta':
+      if (e.delta&&!v.skip){ if(!v.agent) v.agent=add('agent',''); v.agent.textContent+=e.delta; thread.scrollTop=thread.scrollHeight; }
+      break;
+    case 'response.function_call_arguments.done': {
+      let a={}; try{ a=JSON.parse(e.arguments||'{}'); }catch(err){}
+      if (e.name==='save_booking') addRow('booking',a);
+      if (e.name==='save_handoff') addRow('handoff',a);
+      voiceSend(v,{type:'conversation.item.create', item:{type:'function_call_output', call_id:e.call_id, output:'saved'}});
+      v.pending=true; break;
+    }
+    case 'response.done':
+      v.agent=null; v.skip=false; status('On call · speak any time');
+      if (v.pending){ v.pending=false; voiceSend(v,{type:'response.create'}); }
+      break;
+    case 'error':
+      console.error('Voice error', e.error||e);
+      if (v.ready) add('sys', A()+' had trouble with that. Please say it again.');
+      break;
+  }
+}
+async function startVoice(){
+  const mic=navigator.mediaDevices&&navigator.mediaDevices.getUserMedia;
+  if (window.claude||!window.WebSocket||!window.AudioContext||!mic) return false;
+  const v={ctx:new AudioContext(), playing:new Set(), next:0, skip:true, ready:false};
+  if (!VOICE_RATES.includes(v.ctx.sampleRate)){ voiceClose(v); return false; }
+  v.ctx.resume(); voice=v; status('Connecting…');
+  try{
+    const r=await fetch('/api/voice-token',{method:'POST'});
+    const cfg=r.ok?await r.json():null;
+    if (!cfg||!cfg.token||v.closed){ voiceClose(v); return false; }
+    v.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+    if (v.closed){ voiceClose(v); return false; }
+    const format={type:'audio/pcm', rate:v.ctx.sampleRate};
+    v.ws=new WebSocket('wss://api.x.ai/v1/realtime?model='+encodeURIComponent(cfg.model), ['xai-client-secret.'+cfg.token]);
+    return await new Promise(res=>{
+      const giveUp=setTimeout(()=>{ voiceClose(v); res(false); },10000);
+      const ready=ok=>{ clearTimeout(giveUp); res(ok); };
+      v.ws.onopen=()=>voiceSend(v,{type:'session.update', session:{
+        instructions:cfg.guard+'\n\n'+rules(true), voice:cfg.voice, turn_detection:{type:'server_vad'}, tools:VOICE_TOOLS,
+        audio:{input:{format, transcription:{model:'grok-transcribe', language_hint:'en'}}, output:{format}}
+      }});
+      v.ws.onmessage=m=>{ let e; try{ e=JSON.parse(m.data); }catch(err){ return; } voiceEvent(v,e,ready); };
+      v.ws.onerror=()=>console.error('Voice connection error');
+      v.ws.onclose=ev=>{
+        console.error('Voice connection closed', ev&&ev.code, ev&&ev.reason);
+        const was=v.ready, ending=v.closed;
+        voiceClose(v);
+        if (was){ if(!ending&&inCall) voiceEndCall(); } else ready(false);
+      };
+    });
+  }catch(e){ console.error('Voice start failed', e); voiceClose(v); return false; }
+}
+
 function fmt(s){ return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
 function stopCall(log){
+  voiceClose(voice);
   if (callTick) clearInterval(callTick); callTick=null;
   if (log && inCall) add('sys','CALL ENDED · '+fmt(Math.floor((Date.now()-callStart)/1000)));
   inCall=false; try{ window.speechSynthesis&&speechSynthesis.cancel(); }catch(e){}
@@ -517,8 +650,11 @@ $('startCall').onclick=async()=>{
   $('callstart').hidden=true; thread.hidden=false; $('foot').hidden=false; setWho();
   callTick=setInterval(()=>{ const t=$('timer'); if(t) t.textContent='On call · +49 30 5555 0142 · '+fmt(Math.floor((Date.now()-callStart)/1000)); },1000);
   add('sys','CALL CONNECTED'); add('sys',DISCLOSE);
+  if (await startVoice()) return;
+  if (!inCall) return;
+  add('sys','Microphone calling isn’t available here. Type what the caller says instead.');
   const g=greeting(); add('agent',g); turns.push({role:'assistant',content:g});
-  ensureAI(); await speak(g);
+  status('Ready'); ensureAI(); await speak(g);
 };
 
 const SCRIPT=[
