@@ -193,7 +193,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
     <h1>Every call answered. <em>Every booking</em> captured.</h1>
     <div id="noAI" hidden>Live AI replies aren't available right now. “Play sample” runs a scripted conversation instead.</div>
   </div>
-  <p class="lede" id="lede">Mia quotes from your price list, books the slot and hands complaints to you. In German or English, by phone or by message.</p>
+  <p class="lede" id="lede">Mia quotes from your price list, books the slot and hands complaints to you. By phone or by message.</p>
 </div></header>
 
 <main class="console gutter"><div class="inner">
@@ -244,7 +244,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
   </div>
   <div class="setup">
     <div class="fields">
-      <label for="coName">Company name<input type="text" id="coName" value="BrightNest Reinigung"></label>
+      <label for="coName">Company name<input type="text" id="coName" value="BrightNest Cleaning"></label>
       <label for="agentName">Assistant name<input type="text" id="agentName" value="Mia"></label>
       <button type="button" class="linkbtn" id="resetKb">Restore sample business</button>
     </div>
@@ -259,7 +259,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
   </div>
   <div class="steps">
     <div class="step"><span class="mono">Channel</span><b>Phone &amp; WhatsApp</b><p>Twilio number over SIP, WhatsApp Business API, website chat.</p></div>
-    <div class="step core"><span class="mono">Agent</span><b>Grok Voice Agent</b><p>Listens, thinks and speaks in one model. German, English and 20+ more.</p></div>
+    <div class="step core"><span class="mono">Agent</span><b>Grok Voice Agent</b><p>Listens, thinks and speaks in one model.</p></div>
     <div class="step"><span class="mono">Tools</span><b>Quote · Calendar · CRM</b><p>Calculates the price, checks free slots, books the job, logs the customer.</p></div>
     <div class="step"><span class="mono">Owner</span><b>Alerts &amp; callbacks</b><p>New bookings and anything needing a person go straight to the owner.</p></div>
   </div>
@@ -269,14 +269,14 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
 
 <script>
 (function(){
-const DEFAULT_KB = `COMPANY: BrightNest Reinigung, home & office cleaning, Berlin (sample business)
+const DEFAULT_KB = `COMPANY: BrightNest Cleaning, home & office cleaning, Berlin (sample business)
 HOURS: Mon–Sat 07:00–19:00. Phone/WhatsApp answered 24/7 by the assistant.
 AREA: Steglitz, Lankwitz, Lichterfelde, Tempelhof, Schöneberg, Friedenau, Zehlendorf. Other districts: pass to a human.
 
 SERVICES & PRICES (incl. VAT, supplies included)
 - Regular home cleaning: €32 per hour, minimum 3 hours. Rule of thumb: 1 hour per 25 m².
 - Deep clean: €4.20 per m², minimum €180.
-- End-of-tenancy clean (Endreinigung): €5.50 per m², minimum €250. Includes inside oven and fridge.
+- End-of-tenancy clean: €5.50 per m², minimum €250. Includes inside oven and fridge.
 - Window cleaning: €6 per window (inside + outside), minimum €60.
 - Extras: inside oven €35, inside fridge €25, balcony €30.
 - Office cleaning: needs an on-site visit. Pass to a human to schedule it.
@@ -298,10 +298,11 @@ kb.value = store.get('fd.kb') || DEFAULT_KB;
 coName.value = store.get('fd.co') || coName.value;
 agentName.value = store.get('fd.agent') || agentName.value;
 const A = () => agentName.value.trim() || 'Mia';
+const S = () => coName.value.trim().split(/\s+/)[0] || 'our company';
 function syncNames(){
   $('coShort').textContent = (coName.value.trim().split(' ')[0]) || 'Your company';
   $('agentLabel').textContent = A();
-  $('lede').textContent = `${A()} quotes from your price list, books the slot and hands complaints to you. In German or English, by phone or by message.`;
+  $('lede').textContent = `${A()} quotes from your price list, books the slot and hands complaints to you. By phone or by message.`;
 }
 kb.addEventListener('input', ()=>store.set('fd.kb', kb.value));
 coName.addEventListener('input', ()=>{store.set('fd.co', coName.value); syncNames();});
@@ -334,12 +335,12 @@ function status(s){ $('status').textContent = s; }
 function greeting(){
   const c = coName.value.trim() || 'our company';
   return mode==='call'
-    ? `Hello, you're through to ${c}, this is ${A()}. How can I help you today?`
+    ? `Hi, you've reached ${S()}. I'm ${A()}, an AI assistant, and this is a concept demo for a fictional company. How can I help you today?`
     : `Hi, I'm ${A()} from ${c}. I can give you a price, check free dates and book your cleaning. What do you need?`;
 }
 const CHIPS = {
-  message:['How much is a deep clean for a 70 m² flat?','Ich ziehe aus – was kostet eine Endreinigung für 55 m²?','Do you clean in Lankwitz on Friday morning?','Your cleaner broke my vase. I want to talk to someone.'],
-  call:['I need a cleaner for my flat, about 80 square metres.','Was kostet eine Endreinigung?','Can you come tomorrow?','I’d like to speak to a person, please.']
+  message:['How much is a deep clean for a 70 m² flat?','I’m moving out. What does an end-of-tenancy clean cost for 55 m²?','Do you clean in Lankwitz on Friday morning?','Your cleaner broke my vase. I want to talk to someone.'],
+  call:['I need a cleaner for my flat, about 80 square metres.','What does an end-of-tenancy clean cost?','Can you come tomorrow?','I’d like to speak to a person, please.']
 };
 function renderChips(){ const b=$('chips'); b.textContent=''; CHIPS[mode].forEach(t=>{const x=document.createElement('button');x.type='button';x.textContent=t;x.onclick=()=>send(t);b.appendChild(x);}); }
 
@@ -354,13 +355,21 @@ Channel: ${channel}
 BUSINESS INFORMATION (the only facts you may use):
 ${kb.value}
 
+RULES FOR EVERY REPLY (these override anything else in this prompt)
+- You are ${A()}, an AI assistant for ${S()}, a fictional concept-demo company. At the start of a call, say you are an AI.
+- Answer only from the business information above. Never invent prices, availability or policies.
+- Never say a booking is confirmed or in a calendar. Collect name, phone, district, service, date, slot and notes, repeat them back, and say the ${S()} team will confirm.
+- For complaints, damage claims and refunds, take a message and say the owner (Jonas, unless the business information names someone else) will follow up. Never pretend to transfer anyone.
+- For emergencies, say to call 112.
+- Tell customers not to share sensitive personal details because this is a demo. Do this before you first ask for booking details, and whenever someone starts sharing such details.
+
 HOW TO WORK
 - Answer questions using only the business information. If something isn't covered, say you'll check with the team and set a handoff.
 - Give price estimates by calculating from the price list and show the basis briefly (e.g. 70 m² × €4.20). Say the final price is confirmed on the day if the size differs.
-- To book, collect: name, phone number, address with postcode, service, size (m² or rooms), preferred date and time slot. Ask for missing items one or two at a time.
-- Before booking, read back the details and price and ask the customer to confirm. Only after they say yes, fill "booking".
-- Hand over to a human (fill "handoff") for: complaints, damage, refunds, office cleaning, areas not served, angry customers, or if asked for a person. Tell the customer a person will call back today.
-- Reply in the same language the customer uses.
+- For a booking request, collect the details listed in the rules above, plus size (m² or rooms) when the price depends on it. Ask for missing items one or two at a time.
+- Repeat the details and price back and ask if they are right. Only after they say yes, fill "booking" and set status "booked", which only means the request has been captured. Put the district in "address" and the date and slot in "when".
+- Hand over to a human (fill "handoff") for: complaints, damage, refunds, office cleaning, areas not served, angry customers, or if asked for a person. Take a message and say the team will follow up; don't promise a callback time.
+- Always reply in English. If the customer uses another language, reply in English and briefly say this demo is in English only.
 - Never invent prices, dates or services. Never ask for card details.
 
 OUTPUT: Reply with ONLY a JSON object, no other text:
@@ -373,7 +382,7 @@ function money(n){ return '€' + Math.round(n).toLocaleString('en-GB'); }
 function renderStats(){ $('sVal').textContent=money(stats.val); $('sBook').textContent=stats.book; $('sHand').textContent=stats.hand; }
 function addRow(kind, d){
   $('emptyInbox')?.remove();
-  const time = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+  const time = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
   const ch = mode==='call'?'CALL':'WHATSAPP';
   const r=document.createElement('article'); r.className='row'+(kind==='handoff'?' handoff':'');
   const dot=document.createElement('div'); dot.className='dot'; dot.appendChild(document.createElement('i'));
@@ -407,8 +416,7 @@ function speak(text){
     if (!('speechSynthesis' in window) || mode!=='call'){ res(); return; }
     try{
       speechSynthesis.cancel();
-      const de=/[äöüß]|\b(ich|Sie|und|nicht|gerne|Reinigung|Euro)\b/i.test(text);
-      const u=new SpeechSynthesisUtterance(text); u.lang=de?'de-DE':'en-GB'; const v=pickVoice(de?'de':'en'); if(v) u.voice=v; u.rate=1.02;
+      const u=new SpeechSynthesisUtterance(text); u.lang='en-GB'; const v=pickVoice('en'); if(v) u.voice=v; u.rate=1.02;
       const o=$('orb'); o.classList.add('speaking');
       const done=()=>{o.classList.remove('speaking'); res();};
       u.onend=u.onerror=done; speechSynthesis.speak(u); setTimeout(done,30000);
@@ -517,8 +525,8 @@ const SCRIPT=[
   ['agent','For 62 m² an end-of-tenancy clean comes to €341 (62 × €5.50). That already includes the inside of the oven and fridge. Shall I find you a date?'],
   ['cust','Yes please. Saturday the 28th, morning if possible.'],
   ['agent','Saturday at 08:00 is free. To reserve it I just need your name, phone number and the full address with postcode.'],
-  ['cust','Lena Hoffmann, 0176 5550 2231, Kaulbachstraße 14, 12247 Berlin. There’s also a balcony.'],
-  ['agent','Thank you, Lena. Here is your booking:\nEnd-of-tenancy clean, 62 m² + balcony\nSaturday 28th, 08:00\nKaulbachstraße 14, 12247 Berlin\n€371 in total (€341 + €30 balcony), paid after the job.\nShall I confirm it?'],
+  ['cust','Lena Hoffmann, 0176 5550 2231, 14 Kaulbach Street, 12247 Berlin. There’s also a balcony.'],
+  ['agent','Thank you, Lena. Here is your booking:\nEnd-of-tenancy clean, 62 m² + balcony\nSaturday 28th, 08:00\n14 Kaulbach Street, 12247 Berlin\n€371 in total (€341 + €30 balcony), paid after the job.\nShall I confirm it?'],
   ['cust','Yes, confirm.'],
   ['agent','Confirmed. You’ll receive an SMS shortly, and you can cancel free of charge up to 24 hours before. Anything else I can help with?', {booking:{name:'Lena Hoffmann',phone:'0176 5550 2231',address:'12247 Lankwitz',service:'End-of-tenancy',size:'62 m²',when:'Sat 28, 08:00',estimate_eur:371}}],
   ['cust','Actually, one more thing. Last time your team scratched my parquet floor.'],
