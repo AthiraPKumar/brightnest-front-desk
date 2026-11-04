@@ -193,7 +193,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
     <h1>Every call answered. <em>Every booking</em> captured.</h1>
     <div id="noAI" hidden>Live AI replies aren't available right now. “Play sample” runs a scripted conversation instead.</div>
   </div>
-  <p class="lede" id="lede">Mia quotes from your price list, books the slot and hands complaints to you. By phone or by message.</p>
+  <p class="lede" id="lede">Mia quotes from your price list, takes booking requests for your team to confirm and hands complaints to you. By phone or by message.</p>
 </div></header>
 
 <main class="console gutter"><div class="inner">
@@ -229,11 +229,11 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
   <aside class="ledger" aria-labelledby="ledgerH">
     <div class="lhead"><h2 id="ledgerH">Today</h2><span class="mono">Owner's inbox</span></div>
     <div class="stats">
-      <div><b id="sVal">€0</b><span>Booked value</span></div>
-      <div><b id="sBook">0</b><span>Bookings</span></div>
+      <div><b id="sVal">€0</b><span>Requested value</span></div>
+      <div><b id="sBook">0</b><span>Requests</span></div>
       <div class="hand"><b id="sHand">0</b><span>For you</span></div>
     </div>
-    <div class="rows" id="inbox"><p class="empty" id="emptyInbox">Bookings and callbacks appear here the moment Mia captures them.</p></div>
+    <div class="rows" id="inbox"><p class="empty" id="emptyInbox">Booking requests and messages appear here the moment Mia captures them.</p></div>
   </aside>
 </div></main>
 
@@ -302,7 +302,7 @@ const S = () => coName.value.trim().split(/\s+/)[0] || 'our company';
 function syncNames(){
   $('coShort').textContent = (coName.value.trim().split(' ')[0]) || 'Your company';
   $('agentLabel').textContent = A();
-  $('lede').textContent = `${A()} quotes from your price list, books the slot and hands complaints to you. By phone or by message.`;
+  $('lede').textContent = `${A()} quotes from your price list, takes booking requests for your team to confirm and hands complaints to you. By phone or by message.`;
 }
 kb.addEventListener('input', ()=>store.set('fd.kb', kb.value));
 coName.addEventListener('input', ()=>{store.set('fd.co', coName.value); syncNames();});
@@ -336,7 +336,7 @@ function greeting(){
   const c = coName.value.trim() || 'our company';
   return mode==='call'
     ? `Hi, you've reached ${S()}. I'm ${A()}, an AI assistant, and this is a concept demo for a fictional company. How can I help you today?`
-    : `Hi, I'm ${A()} from ${c}. I can give you a price, check free dates and book your cleaning. What do you need?`;
+    : `Hi, I'm ${A()} from ${c}. I can give you a price, check free dates and take your booking request. What do you need?`;
 }
 const CHIPS = {
   message:['How much is a deep clean for a 70 m² flat?','I’m moving out. What does an end-of-tenancy clean cost for 55 m²?','Do you clean in Lankwitz on Friday morning?','Your cleaner broke my vase. I want to talk to someone.'],
@@ -391,7 +391,7 @@ function addRow(kind, d){
   const title=document.createElement('b'); const right=document.createElement('span');
   const p=document.createElement('p'); const meta=document.createElement('span'); meta.className='meta';
   if (kind==='booking'){
-    title.textContent = [d.service, d.size].filter(Boolean).join(' · ') || 'New booking';
+    title.textContent = [d.service, d.size].filter(Boolean).join(' · ') || 'New booking request';
     right.className='amt'; right.textContent = d.estimate_eur!=null ? money(Number(d.estimate_eur)||0) : '';
     p.textContent = [d.name, d.when, d.address].filter(Boolean).join(' · ');
     meta.textContent = [ch+' · '+time, d.phone].filter(Boolean).join(' · ');
@@ -409,14 +409,15 @@ function addRow(kind, d){
 
 function pickVoice(lang){
   const vs=(window.speechSynthesis&&speechSynthesis.getVoices())||[];
-  return vs.find(v=>v.lang&&v.lang.toLowerCase().startsWith(lang)&&/female|anna|samantha|google|natural|neural/i.test(v.name)) || vs.find(v=>v.lang&&v.lang.toLowerCase().startsWith(lang)) || null;
+  const match=v=>v.lang&&v.lang.toLowerCase().replace('_','-').startsWith(lang);
+  return vs.find(v=>match(v)&&/female|zira|samantha|google|natural|neural/i.test(v.name)) || vs.find(match) || null;
 }
 function speak(text){
   return new Promise(res=>{
     if (!('speechSynthesis' in window) || mode!=='call'){ res(); return; }
     try{
       speechSynthesis.cancel();
-      const u=new SpeechSynthesisUtterance(text); u.lang='en-GB'; const v=pickVoice('en'); if(v) u.voice=v; u.rate=1.02;
+      const u=new SpeechSynthesisUtterance(text); u.lang='en-US'; const v=pickVoice('en-us'); if(v) u.voice=v; u.rate=1.02;
       const o=$('orb'); o.classList.add('speaking');
       const done=()=>{o.classList.remove('speaking'); res();};
       u.onend=u.onerror=done; speechSynthesis.speak(u); setTimeout(done,30000);
@@ -464,7 +465,7 @@ async function send(text){
     settle(t, reply); turns.push({role:'assistant',content:reply});
     if (res&&res.booking&&typeof res.booking==='object') addRow('booking',res.booking);
     if (res&&res.handoff&&typeof res.handoff==='object') addRow('handoff',res.handoff);
-    status(res&&res.status ? 'Status · '+res.status : 'Ready');
+    status(res&&res.status ? 'Status · '+(res.status==='booked'?'request captured':res.status) : 'Ready');
     await speak(reply);
   }catch(e){
     t.parentElement.remove(); turns.pop();
@@ -522,15 +523,15 @@ $('startCall').onclick=async()=>{
 
 const SCRIPT=[
   ['cust','Hi, I’m moving out of my flat in Lankwitz at the end of the month. What does an end-of-tenancy clean cost for 62 m²?'],
-  ['agent','For 62 m² an end-of-tenancy clean comes to €341 (62 × €5.50). That already includes the inside of the oven and fridge. Shall I find you a date?'],
+  ['agent','For 62 m² an end-of-tenancy clean comes to €341 (62 × €5.50). That already includes the inside of the oven and fridge. Shall I take a booking request?'],
   ['cust','Yes please. Saturday the 28th, morning if possible.'],
-  ['agent','Saturday at 08:00 is free. To reserve it I just need your name, phone number and the full address with postcode.'],
-  ['cust','Lena Hoffmann, 0176 5550 2231, 14 Kaulbach Street, 12247 Berlin. There’s also a balcony.'],
-  ['agent','Thank you, Lena. Here is your booking:\nEnd-of-tenancy clean, 62 m² + balcony\nSaturday 28th, 08:00\n14 Kaulbach Street, 12247 Berlin\n€371 in total (€341 + €30 balcony), paid after the job.\nShall I confirm it?'],
-  ['cust','Yes, confirm.'],
-  ['agent','Confirmed. You’ll receive an SMS shortly, and you can cancel free of charge up to 24 hours before. Anything else I can help with?', {booking:{name:'Lena Hoffmann',phone:'0176 5550 2231',address:'12247 Lankwitz',service:'End-of-tenancy',size:'62 m²',when:'Sat 28, 08:00',estimate_eur:371}}],
+  ['agent','We have an 08:00 morning slot on Saturdays, so I’ll note that as your preference. As this is a demo, please don’t share sensitive personal details. I just need your name, phone number and district.'],
+  ['cust','Lena Hoffmann, 0176 5550 2231, Lankwitz. There’s also a balcony.'],
+  ['agent','Thank you, Lena. Here is what I have:\nLena Hoffmann, 0176 5550 2231\nEnd-of-tenancy clean, 62 m²\nSaturday 28th, 08:00\nLankwitz\nNotes: balcony\n€371 in total (€341 + €30 balcony), paid after the job.\nIs that all correct?'],
+  ['cust','Yes, that’s right.'],
+  ['agent','Thanks, Lena. I’ve noted your request, and the BrightNest team will confirm it. Cancellation is free up to 24 hours before. Anything else I can help with?', {booking:{name:'Lena Hoffmann',phone:'0176 5550 2231',address:'Lankwitz',notes:'Balcony',service:'End-of-tenancy',size:'62 m²',when:'Sat 28, 08:00',estimate_eur:371}}],
   ['cust','Actually, one more thing. Last time your team scratched my parquet floor.'],
-  ['agent','I’m sorry to hear that, Lena. I’ve passed this straight to Jonas, our owner, and he’ll call you back today to put it right.', {handoff:{reason:'Reports a scratched parquet floor from the last visit',summary:'Promised a call back today',callback:'0176 5550 2231'}}]
+  ['agent','I’m sorry to hear that, Lena. I’ve taken a message, and Jonas, our owner, will follow up with you.', {handoff:{reason:'Reports a scratched parquet floor from the last visit',summary:'Message taken. Owner to follow up',callback:'0176 5550 2231'}}]
 ];
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 $('autoplay').onclick=async()=>{
