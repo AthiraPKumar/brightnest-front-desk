@@ -4,11 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A sales demo of an AI receptionist ("front desk") for a cleaning company: it quotes from a price list, books jobs, and hands complaints to the owner, over a simulated phone call or WhatsApp chat. There is no build, lint, or test tooling. The demo is one self-contained HTML page (inline CSS + JS, Google Fonts only), plus two Vercel serverless functions: `api/chat.js` gives the hosted site live Grok replies, and `api/voice-token.js` enables browser microphone calls through Grok Voice. `docs/PLAN.md` holds the roadmap for the real product (Grok Voice Agent + Twilio + WhatsApp). The real phone line and WhatsApp are not implemented yet.
+A sales demo of an AI receptionist ("front desk") for a cleaning company: it quotes from a price list, books jobs, and hands complaints to the owner, over a simulated phone call or WhatsApp chat. There is no build, lint, or test tooling. The demo is one self-contained HTML page (inline CSS + JS, Google Fonts only), plus three Vercel serverless functions: `api/chat.js` gives the hosted site live Grok replies, `api/voice-token.js` enables browser microphone calls through Grok Voice, and `api/booking.js` lets those calls book on Cal.com. `docs/PLAN.md` holds the roadmap for the real product (Grok Voice Agent + Twilio + WhatsApp). The real phone line and WhatsApp are not implemented yet.
 
 ## The two copies of the page
 
-- `index.html` (repo root) is the hosted static website. The repo root is the publish directory for GitHub Pages, Netlify, Vercel and similar hosts. There is no build step, and `.nojekyll` turns off Jekyll on GitHub Pages. Keep the page self-contained: hosts serve the root as-is, so it should not depend on any other file in the repo. The only exceptions are the optional `/api/chat` and `/api/voice-token` calls, which the page survives without.
+- `index.html` (repo root) is the hosted static website. The repo root is the publish directory for GitHub Pages, Netlify, Vercel and similar hosts. There is no build step, and `.nojekyll` turns off Jekyll on GitHub Pages. Keep the page self-contained: hosts serve the root as-is, so it should not depend on any other file in the repo. The only exceptions are the optional `/api/chat`, `/api/voice-token` and `/api/booking` calls, which the page survives without.
 - `artifact/artifact-source.html` is the same content without the doctype/head/body wrapper (the 8 header lines and the closing `</body></html>`). It is published as a Claude Artifact at https://claude.ai/artifact/JVmga8kPUNuQHtAMgFQhue, and the Artifact host adds the wrapper at publish time.
 
 Apply every change to both files. Apart from the wrapper, they should diff clean. After changing the artifact copy, republish it to the existing URL using the Artifact tool's `url`. Live AI comes from Claude inside the Artifact and from Grok via `/api/chat` on Vercel. Anywhere else, the page falls back to the scripted **Play sample** demo.
@@ -28,10 +28,16 @@ Apply every change to both files. Apart from the wrapper, they should diff clean
 - Limits live in `LIMITS`: 3 calls per minute and 20 per day per IP (in memory, per instance, best-effort).
 - The browser sends `session.update` itself, because xAI's token endpoint doesn't accept session settings. So here `GUARD` is sent to the page and can't be enforced, unlike in `api/chat.js`.
 
+## The booking function (`api/booking.js`)
+
+- Same style as `api/chat.js`. `POST {action:'slots', date}` returns free times from Cal.com, and `POST {action:'book', start, name, email, ...}` creates the booking. Errors come back as `{error:{code, message}}`, and `slot_taken` means Mia should offer another time.
+- Environment: `CAL_API_KEY` (set in Vercel, never in the page or git) is the switch for this feature. `/api/voice-token` returns `booking: true` when it is set, and the function refuses requests without it. `CAL_USERNAME` and `CAL_EVENT_SLUG` are optional and choose the booking type.
+- Limits live in `LIMITS`: 3 bookings per hour and 5 per day per IP, 30 per day per instance, and 20 availability checks per minute per IP (in memory, best-effort).
+
 ## How the page works (script at the bottom of the file)
 
 - **Business knowledge base:** `DEFAULT_KB` is a plain-text block with prices, area, availability and policies for a sample Berlin business. The **Business setup** section lets a user edit the company name, assistant name (default "Mia") and KB. These edits are saved to `localStorage` (`fd.kb`, `fd.co`, `fd.agent`) through a try/catch `store` wrapper. The agent may only quote facts that appear in the KB.
-- **Prompt:** `rules()` builds the system prompt from the KB, the current channel (`mode` is `'call'` or `'message'`, and each mode has its own style rules), and today's date. It requires the model to answer with a strict JSON object: `{reply, status, booking, handoff}`. `rules(true)` builds the Grok Voice version, which replaces the JSON format with the `save_booking` and `save_handoff` tools.
+- **Prompt:** `rules()` builds the system prompt from the KB, the current channel (`mode` is `'call'` or `'message'`, and each mode has its own style rules), and today's date. It requires the model to answer with a strict JSON object: `{reply, status, booking, handoff}`. `rules(true)` builds the Grok Voice version, which replaces the JSON format with the `save_booking` and `save_handoff` tools. `rules(true, true)` adds real booking through the `check_availability` and `book_appointment` tools (see `voiceCalendar()`), and Mia may only say an appointment is booked after `book_appointment` succeeds. Typed chats still only capture requests.
 - **Live AI:** `ensureAI()` picks a `backend`, and `askAI()` sends the prompt plus the last 24 turns to it.
   - `'claude'`: used when `window.claude` exists. It goes through the Artifact runtime's sampling capability, where `window.claude.use('sample')` returns a handle and `sample.json([...], {modelTier:'quick'})` is called.
   - `'api'`: used when `window.claude` does not exist. It calls `POST /api/chat`.

@@ -89,7 +89,7 @@ module.exports = async function handler(req, res) {
       console.error('xAI token response had no token. Fields:', Object.keys(data || {}).join(','));
       return fail(res, 502, 'upstream_error', 'Voice is not available right now.');
     }
-    return res.status(200).json({ token, model: MODEL, voice: VOICE, guard: GUARD });
+    return res.status(200).json({ token, model: MODEL, voice: VOICE, guard: GUARD, booking: Boolean((process.env.CAL_API_KEY || '').trim()) });
   } catch (e) {
     console.error('xAI token request failed', e && e.name, e && e.message);
     return fail(res, 502, 'upstream_error', 'Voice is not available right now.');

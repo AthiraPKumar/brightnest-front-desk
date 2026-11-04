@@ -344,11 +344,21 @@ const CHIPS = {
 };
 function renderChips(){ const b=$('chips'); b.textContent=''; CHIPS[mode].forEach(t=>{const x=document.createElement('button');x.type='button';x.textContent=t;x.onclick=()=>send(t);b.appendChild(x);}); }
 
-function rules(voiced){
+function rules(voiced, live){
   const channel = mode==='call'
     ? 'PHONE CALL. Your reply is spoken aloud by text-to-speech. Use 1–2 short, natural spoken sentences. No lists, no emoji, no markdown; say prices as words (e.g. "two hundred and ninety-four euros"). Ask one question at a time.'+(voiced?' Speak with a natural American English accent.':'')
     : 'WHATSAPP MESSAGE. Warm, polished and brief (max ~70 words). Light formatting is fine. No emoji.';
   const today = new Date().toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const cal = live ? `BOOKING ON THIS CALL
+- Free times come only from check_availability, even if the business information lists other slots. Never offer a time it did not return. The same-day, next-day and Sunday rules in the business information still apply.
+- Once you know the service and have given the price, ask which day suits the caller. Work the date out from today's date, say "one moment", then call check_availability. Offer at most three times. If requested_date_free is false, say that day is full and offer the day it returned.
+- Collect the caller's name, phone, district and email. Tell them the confirmation goes to that email. Ask them to spell the email, read it back letter by letter, and ask if it is right.
+- Repeat the service, price, day, time, district and email back and ask if they are right. Only after they say yes, say "one moment" and call book_appointment, using the exact start value from check_availability.
+- Say the appointment is booked only if book_appointment returns ok true and confirmed true. Then say the day and time, and that a confirmation email is on its way. If confirmed is false, say the request is in and the ${S()} team will confirm.
+- If the code is slot_taken, apologize and call check_availability again. If it is anything else, call save_booking, tell the caller nothing is booked yet, and say the ${S()} team will confirm.
+- Only one appointment can be booked per call.
+
+` : '';
   return `You are ${A()}, the AI receptionist for ${coName.value||'a cleaning company'}. Today is ${today}.
 Channel: ${channel}
 
@@ -358,7 +368,7 @@ ${kb.value}
 RULES FOR EVERY REPLY (these override anything else in this prompt)
 - You are ${A()}, an AI assistant for ${S()}, a fictional concept-demo company. At the start of a call, say you are an AI.
 - Answer only from the business information above. Never invent prices, availability or policies.
-- Never say a booking is confirmed or in a calendar. Collect name, phone, district, service, date, slot and notes, repeat them back, and say the ${S()} team will confirm.
+${live ? `- Never say a booking is confirmed or in a calendar unless the book_appointment tool says it succeeded. Follow BOOKING ON THIS CALL below.` : `- Never say a booking is confirmed or in a calendar. Collect name, phone, district, service, date, slot and notes, repeat them back, and say the ${S()} team will confirm.`}
 - For complaints, damage claims and refunds, take a message and say the owner (Jonas, unless the business information names someone else) will follow up. Never pretend to transfer anyone.
 - For emergencies, say to call 112.
 - Tell customers not to share sensitive personal details because this is a demo. Do this before you first ask for booking details, and whenever someone starts sharing such details.
@@ -367,12 +377,12 @@ HOW TO WORK
 - Answer questions using only the business information. If something isn't covered, say you'll check with the team and set a handoff.
 - Give price estimates by calculating from the price list and show the basis briefly (e.g. 70 m² × €4.20). Say the final price is confirmed on the day if the size differs.
 - For a booking request, collect the details listed in the rules above, plus size (m² or rooms) when the price depends on it. Ask for missing items one or two at a time.
-- Repeat the details and price back and ask if they are right. Only after they say yes, fill "booking" and set status "booked", which only means the request has been captured. Put the district in "address" and the date and slot in "when".
+${live ? `- Repeat the details and price back and ask if they are right before you book.` : `- Repeat the details and price back and ask if they are right. Only after they say yes, fill "booking" and set status "booked", which only means the request has been captured. Put the district in "address" and the date and slot in "when".`}
 - Hand over to a human (fill "handoff") for: complaints, damage, refunds, office cleaning, areas not served, angry customers, or if asked for a person. Take a message and say the team will follow up; don't promise a callback time.
 - Always reply in English. If the customer uses another language, reply in English and briefly say this demo is in English only.
 - Never invent prices, dates or services. Never ask for card details.
 
-${voiced ? `TOOLS: You are speaking live, so never say JSON or field names aloud. Where these instructions say to fill "booking", call save_booking. Where they say to fill "handoff", call save_handoff. Ignore the instruction about status. Keep talking to the caller normally after a tool call.` : `OUTPUT: Reply with ONLY a JSON object, no other text:
+${cal}${voiced ? `TOOLS: You are speaking live, so never say JSON or field names aloud. Where these instructions say to fill "booking", call save_booking. Where they say to fill "handoff", call save_handoff. Ignore the instruction about status. Keep talking to the caller normally after a tool call.` : `OUTPUT: Reply with ONLY a JSON object, no other text:
 {"reply": string, "status": "chatting"|"quoted"|"booked"|"handoff",
  "booking": null | {"name":string,"phone":string,"address":string,"service":string,"size":string,"when":string,"estimate_eur":number,"notes":string},
  "handoff": null | {"reason":string,"summary":string,"callback":string}}`}`;
@@ -394,7 +404,7 @@ function addRow(kind, d){
     title.textContent = [d.service, d.size].filter(Boolean).join(' · ') || 'New booking request';
     right.className='amt'; right.textContent = d.estimate_eur!=null ? money(Number(d.estimate_eur)||0) : '';
     p.textContent = [d.name, d.when, d.address].filter(Boolean).join(' · ');
-    meta.textContent = [ch+' · '+time, d.phone].filter(Boolean).join(' · ');
+    meta.textContent = [ch+' · '+time, d.phone, d.email, d.calendar&&'ON CALENDAR'].filter(Boolean).join(' · ');
     stats.book++; stats.val += Number(d.estimate_eur)||0;
   } else {
     title.textContent = 'Call back' + (d.callback ? '' : ' customer');
@@ -491,7 +501,28 @@ const VOICE_TOOLS = [
   {type:'function', name:'save_booking', description:'Save a booking request once the caller has said the repeated details are right.', parameters:{type:'object', properties:{name:{type:'string'},phone:{type:'string'},address:{type:'string',description:'District'},service:{type:'string'},size:{type:'string'},when:{type:'string',description:'Date and slot'},estimate_eur:{type:'number'},notes:{type:'string'}}, required:['name','phone','address','service','when']}},
   {type:'function', name:'save_handoff', description:'Leave a message for the owner or team.', parameters:{type:'object', properties:{reason:{type:'string'},summary:{type:'string'},callback:{type:'string'}}, required:['reason','summary']}}
 ];
+const VOICE_TOOLS_LIVE = [
+  {type:'function', name:'check_availability', description:'Look up real free appointment times for a day. If that day is full, it returns the next free day.', parameters:{type:'object', properties:{date:{type:'string',description:'Day to check, as YYYY-MM-DD'}}, required:['date']}},
+  {type:'function', name:'book_appointment', description:'Book the appointment on the calendar and email the caller. Use only after the caller has said the repeated details and spelled email are right.', parameters:{type:'object', properties:{start:{type:'string',description:'The exact start value from check_availability'},name:{type:'string'},email:{type:'string'},phone:{type:'string'},address:{type:'string',description:'District'},service:{type:'string'},size:{type:'string'},estimate_eur:{type:'number'},notes:{type:'string'}}, required:['start','name','email','phone','address','service']}},
+  ...VOICE_TOOLS
+];
 let voice = null;
+async function voiceCalendar(v,name,a){
+  const booking=name==='book_appointment';
+  if (booking&&v.booked) return JSON.stringify({ok:false,code:'already_booked',booked:v.booked});
+  if (booking&&v.booking) return JSON.stringify({ok:false,code:'in_progress'});
+  if (booking) v.booking=true;
+  const ctl=new AbortController(), timer=setTimeout(()=>ctl.abort(),15000);
+  try{
+    const r=await fetch('/api/booking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...a,action:booking?'book':'slots'}),signal:ctl.signal});
+    const d=await r.json();
+    if (d.error) return JSON.stringify({ok:false,code:d.error.code});
+    if (booking&&d.ok){ v.booked=d; addRow('booking',{...a,when:d.when,calendar:d.confirmed}); }
+    return JSON.stringify(d);
+  }catch(e){ return JSON.stringify({ok:false,code:'unavailable'}); }
+  finally{ clearTimeout(timer); if (booking) v.booking=false; }
+}
+function voiceContinue(v){ if (v.pending&&!v.calls&&!v.responding){ v.pending=false; voiceSend(v,{type:'response.create'}); } }
 function pcmToB64(f32){
   const bytes=new Uint8Array(f32.length*2), d=new DataView(bytes.buffer);
   for (let i=0;i<f32.length;i++) d.setInt16(i*2, Math.max(-1,Math.min(1,f32[i]))*32767, true);
@@ -563,14 +594,18 @@ function voiceEvent(v,e,ready){
       break;
     case 'response.function_call_arguments.done': {
       let a={}; try{ a=JSON.parse(e.arguments||'{}'); }catch(err){}
+      v.responding=true; v.calls=(v.calls||0)+1;
+      const reply=output=>{ v.calls--; voiceSend(v,{type:'conversation.item.create', item:{type:'function_call_output', call_id:e.call_id, output}}); v.pending=true; voiceContinue(v); };
+      if (e.name==='check_availability'||e.name==='book_appointment'){ voiceCalendar(v,e.name,a).then(reply); break; }
       if (e.name==='save_booking') addRow('booking',a);
       if (e.name==='save_handoff') addRow('handoff',a);
-      voiceSend(v,{type:'conversation.item.create', item:{type:'function_call_output', call_id:e.call_id, output:'saved'}});
-      v.pending=true; break;
+      reply('saved'); break;
     }
+    case 'response.created':
+      v.responding=true; break;
     case 'response.done':
-      v.agent=null; v.skip=false; status('On call · speak any time');
-      if (v.pending){ v.pending=false; voiceSend(v,{type:'response.create'}); }
+      v.agent=null; v.skip=false; v.responding=false; status('On call · speak any time');
+      voiceContinue(v);
       break;
     case 'error':
       console.error('Voice error', e.error||e);
@@ -596,7 +631,7 @@ async function startVoice(){
       const giveUp=setTimeout(()=>{ voiceClose(v); res(false); },10000);
       const ready=ok=>{ clearTimeout(giveUp); res(ok); };
       v.ws.onopen=()=>voiceSend(v,{type:'session.update', session:{
-        instructions:cfg.guard+'\n\n'+rules(true), voice:cfg.voice, turn_detection:{type:'server_vad'}, tools:VOICE_TOOLS,
+        instructions:cfg.guard+'\n\n'+rules(true,cfg.booking), voice:cfg.voice, turn_detection:{type:'server_vad'}, tools:cfg.booking?VOICE_TOOLS_LIVE:VOICE_TOOLS,
         audio:{input:{format, transcription:{model:'grok-transcribe', language_hint:'en'}}, output:{format}}
       }});
       v.ws.onmessage=m=>{ let e; try{ e=JSON.parse(m.data); }catch(err){ return; } voiceEvent(v,e,ready); };

@@ -10,6 +10,7 @@ Live demo: https://brightnest-front-desk.vercel.app/
 - `index.html` — the demo page (the hosted website).
 - `api/chat.js` — Vercel serverless function that gives the hosted site live replies from xAI Grok.
 - `api/voice-token.js` — Vercel serverless function that gives the page a short-lived token for microphone calls through Grok Voice.
+- `api/booking.js` — Vercel serverless function that checks free times and creates bookings on Cal.com during voice calls.
 - `artifact/artifact-source.html` — the exact source published to Claude (same page without the HTML wrapper):
   https://claude.ai/artifact/JVmga8kPUNuQHtAMgFQhue
 - `.env.example` — the environment variables the function reads.
@@ -52,6 +53,15 @@ spoken by the browser. Inside the Claude Artifact, calls always use typing.
 Cost and safety limits: 3 calls per minute and 20 per day per IP (best-effort), and a 5-minute limit
 per call that the page enforces. The browser sets up the voice session, so someone technical could
 change Mia's instructions or keep a call open longer. **Set a spending limit in the xAI console.**
+
+## Calendar bookings (Cal.com)
+Add `CAL_API_KEY` in Vercel to let Mia check free times and book appointments during a microphone call.
+The appointment goes on the Cal.com booking type set by `CAL_USERNAME` and `CAL_EVENT_SLUG`, and Cal.com emails the caller.
+Without the key, Mia takes a request and says the team will confirm. Typed chats and calls that fall back to typing always work that way.
+
+The appointment's length, working hours and calendar sync are set in Cal.com.
+Limits: 3 bookings per hour and 5 per day per IP, and 30 per day overall (in memory, per instance, best-effort).
+Because the page is public, anyone can book and enter any email address. Set a daily booking limit on the booking type in Cal.com too.
 
 ## Editing the demo for a prospect
 Open the page → scroll to **Business setup** → change company name, assistant name and the
