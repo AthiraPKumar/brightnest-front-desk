@@ -1,4 +1,4 @@
-# BrightNest — AI Front Desk for a cleaning company
+# BrightNest — Front Desk Agent for a cleaning company
 
 An AI receptionist that answers customer calls and WhatsApp messages for a cleaning company:
 it quotes from the price list, books jobs, and hands complaints to the owner.

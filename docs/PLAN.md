@@ -1,4 +1,4 @@
-# AI front desk for a cleaning company — plan (Nov 2026)
+# Front desk agent for a cleaning company — plan (Nov 2026)
 
 ## Recommended stack
 - **Phone calls:** xAI Grok Voice Agent API (`grok-voice-3.0`, speech-to-speech, ~$0.08/min, ~0.8 s to first audio, 20+ languages incl. German). Connect a Twilio (or Telnyx) Berlin number via SIP. Pin the versioned model name, not `grok-voice-latest`.
