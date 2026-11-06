@@ -30,7 +30,7 @@ Apply every change to both files. Apart from the wrapper, they should diff clean
 
 ## The booking function (`api/booking.js`)
 
-- Same style as `api/chat.js`. `POST {action:'slots', date}` returns free times from Cal.com, and `POST {action:'book', start, name, email, ...}` creates the booking. Errors come back as `{error:{code, message}}`, and `slot_taken` means Mia should offer another time.
+- Same style as `api/chat.js`. `POST {action:'slots', date, duration_minutes}` returns free times from Cal.com, and `POST {action:'book', start, duration_minutes, name, email, ...}` creates the booking. Mia takes the job length from `JOB LENGTH` in the KB. The function reads the booking type's public settings, picks the shortest allowed length that fits, and sends the caller's address when the location is In Person (Attendee Address). Errors come back as `{error:{code, message}}`, and `slot_taken` means Mia should offer another time.
 - Environment: `CAL_API_KEY` (set in Vercel, never in the page or git) is the switch for this feature. `/api/voice-token` returns `booking: true` when it is set, and the function refuses requests without it. `CAL_USERNAME` and `CAL_EVENT_SLUG` are optional and choose the booking type.
 - Limits live in `LIMITS`: 3 bookings per hour and 5 per day per IP, 30 per day per instance, and 20 availability checks per minute per IP (in memory, best-effort).
 

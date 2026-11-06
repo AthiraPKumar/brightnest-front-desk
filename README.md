@@ -59,7 +59,8 @@ Add `CAL_API_KEY` in Vercel to let Mia check free times and book appointments du
 The appointment goes on the Cal.com booking type set by `CAL_USERNAME` and `CAL_EVENT_SLUG`, and Cal.com emails the caller.
 Without the key, Mia takes a request and says the team will confirm. Typed chats and calls that fall back to typing always work that way.
 
-The appointment's length, working hours and calendar sync are set in Cal.com.
+Mia takes the job length from `JOB LENGTH` in the business setup. Turn on multiple durations in Cal.com and add those lengths, or every booking uses the default length.
+Working hours, location and calendar sync are set in Cal.com.
 Limits: 3 bookings per hour and 5 per day per IP, and 30 per day overall (in memory, per instance, best-effort).
 Because the page is public, anyone can book and enter any email address. Set a daily booking limit on the booking type in Cal.com too.
 

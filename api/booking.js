@@ -1,13 +1,15 @@
 // Vercel serverless function: POST /api/booking
 // Lets Mia check free times and create bookings on Cal.com during a voice call.
-//   {action:'slots', date:'YYYY-MM-DD'}
-//   {action:'book', start, name, email, phone, address, service, size, estimate_eur, notes}
+//   {action:'slots', date:'YYYY-MM-DD', duration_minutes}
+//   {action:'book', start, duration_minutes, name, email, phone, address, service, size, estimate_eur, notes}
+// Job lengths and the location type come from the Cal.com booking type's own settings.
 // The page's call to this function can be faked, so a real booking is limited
 // here by IP and per instance. Cal.com itself refuses times that aren't free.
 
 const API = 'https://api.cal.com/v2';
 const SLOTS_VERSION = '2024-09-04';
 const BOOKINGS_VERSION = '2026-02-25';
+const EVENT_TYPES_VERSION = '2024-06-14';
 const TIME_ZONE = 'Europe/Berlin';
 const calKey = () => (process.env.CAL_API_KEY || '').trim();
 const USERNAME = process.env.CAL_USERNAME || 'athira-prasannakumar';
@@ -21,6 +23,7 @@ const LIMITS = {
   searchDays: 14,       // how far ahead to look for a free day
   maxSlots: 8,          // times returned to Mia for one day
   timeoutMs: 12000,
+  settingsCacheMs: 60_000,
 };
 
 // Best-effort and per instance, like api/chat.js.
@@ -83,12 +86,41 @@ async function callCal(path, options) {
   }
 }
 
+// The booking type's public settings: allowed lengths and location type.
+// If they can't be read, Cal.com's default length and location are used.
+let settings = { at: 0, type: null };
+async function bookingType() {
+  if (settings.type && Date.now() - settings.at < LIMITS.settingsCacheMs) return settings.type;
+  try {
+    const query = new URLSearchParams({ username: USERNAME, eventSlug: EVENT_SLUG });
+    const r = await callCal(`/event-types?${query}`, { headers: { 'cal-api-version': EVENT_TYPES_VERSION } });
+    const type = r.ok ? (await r.json())?.data?.[0] : null;
+    if (type) { settings = { at: Date.now(), type }; return type; }
+    console.error('Cal.com booking type not found', r.status);
+  } catch (e) {
+    console.error('Cal.com booking type request failed', e && e.name);
+  }
+  return null;
+}
+
+// The shortest allowed length that fits the job, or the longest if none does.
+// Null means this booking type has a single length, so Cal.com should use it.
+function jobLength(type, asked) {
+  const options = Array.isArray(type?.lengthInMinutesOptions) ? [...type.lengthInMinutesOptions].sort((x, y) => x - y) : [];
+  if (!options.length) return null;
+  const want = Number(asked) || type.lengthInMinutes || options[0];
+  return options.find(m => m >= want) || options[options.length - 1];
+}
+
 async function slots(res, body) {
   const today = dayInBerlin(new Date());
   const asked = /^\d{4}-\d{2}-\d{2}$/.test(body.date || '') && !Number.isNaN(Date.parse(`${body.date}T00:00:00Z`)) ? body.date : today;
   const from = asked < today ? today : asked;
   const to = new Date(Date.parse(`${from}T00:00:00Z`) + (LIMITS.searchDays - 1) * 86_400_000).toISOString().slice(0, 10);
+  const type = await bookingType();
+  const length = jobLength(type, body.duration_minutes);
   const query = new URLSearchParams({ eventTypeSlug: EVENT_SLUG, username: USERNAME, start: from, end: to, timeZone: TIME_ZONE });
+  if (length) query.set('duration', String(length));
 
   const r = await callCal(`/slots?${query}`, { headers: { 'cal-api-version': SLOTS_VERSION } });
   if (!r.ok) {
@@ -97,7 +129,7 @@ async function slots(res, body) {
   }
   const data = (await r.json())?.data || {};
   const day = Object.keys(data).filter(d => Array.isArray(data[d]) && data[d].length).sort()[0];
-  if (!day) return res.status(200).json({ ok: true, date: null, requested_date_free: false, slots: [] });
+  if (!day) return res.status(200).json({ ok: true, date: null, requested_date_free: false, minutes: length || type?.lengthInMinutes || null, slots: [] });
 
   // Spread the times across the day so Mia isn't only offered the morning.
   const times = data[day].map(s => (typeof s === 'string' ? s : s.start)).filter(Boolean);
@@ -106,6 +138,7 @@ async function slots(res, body) {
     ok: true,
     date: day,
     requested_date_free: day === from,
+    minutes: length || type?.lengthInMinutes || null,
     slots: times.filter((_, i) => i % step === 0).map(start => ({ start, label: label(start) })),
   });
 }
@@ -126,11 +159,15 @@ async function book(res, body, ip) {
   const notes = [
     ['Service', clean(body.service, 120)],
     ['Size', clean(body.size, 60)],
-    ['District', clean(body.address, 120)],
+    ['Address', clean(body.address, 160)],
     ['Phone', clean(body.phone, 40)],
     ['Estimate', Number.isFinite(estimate) && estimate > 0 ? `EUR ${Math.round(estimate)}` : ''],
     ['Notes', clean(body.notes, 300)],
   ].filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join('\n');
+
+  const type = await bookingType();
+  const length = jobLength(type, body.duration_minutes);
+  const atCustomer = (type?.locations || []).some(l => l.type === 'attendeeAddress');
 
   const r = await callCal('/bookings', {
     method: 'POST',
@@ -141,6 +178,8 @@ async function book(res, body, ip) {
       username: USERNAME,
       attendee: { name, email, timeZone: TIME_ZONE, language: 'en' },
       bookingFieldsResponses: { notes },
+      ...(length ? { lengthInMinutes: length } : {}),
+      ...(atCustomer ? { location: { type: 'attendeeAddress', address: clean(body.address, 160) || 'Address to be confirmed' } } : {}),
     }),
   });
   const data = await r.json().catch(() => null);
@@ -158,6 +197,7 @@ async function book(res, body, ip) {
     confirmed: booking.status === 'accepted',
     id: booking.uid || null,
     when: label(booking.start || new Date(startMs).toISOString()),
+    minutes: booking.duration || length || type?.lengthInMinutes || null,
     email,
   });
 }

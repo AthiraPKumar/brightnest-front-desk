@@ -281,6 +281,12 @@ SERVICES & PRICES (incl. VAT, supplies included)
 - Extras: inside oven €35, inside fridge €25, balcony €30.
 - Office cleaning: needs an on-site visit. Pass to a human to schedule it.
 
+JOB LENGTH (blocks the calendar for this long)
+- Regular home cleaning: 3 hours for up to 75 m² or 2 rooms, 4 hours up to 100 m² or 3 rooms, 5 hours for anything larger.
+- Deep clean: 4 hours for up to 75 m², 6 hours for anything larger.
+- End-of-tenancy clean: 5 hours for up to 75 m², 7 hours for anything larger.
+- Window cleaning: 2 hours.
+
 AVAILABILITY (next 2 weeks)
 - Mornings 08:00 and afternoons 13:00, Monday to Saturday. No Sundays.
 - Same-day jobs: not possible. Next-day: only if booked before 15:00.
@@ -351,10 +357,11 @@ function rules(voiced, live){
   const today = new Date().toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const cal = live ? `BOOKING ON THIS CALL
 - Free times come only from check_availability, even if the business information lists other slots. Never offer a time it did not return. The same-day, next-day and Sunday rules in the business information still apply.
-- Once you know the service and have given the price, ask which day suits the caller. Work the date out from today's date, say "one moment", then call check_availability. Offer at most three times. If requested_date_free is false, say that day is full and offer the day it returned.
-- Collect the caller's name, phone, district and email. Tell them the confirmation goes to that email. Ask them to spell the email, read it back letter by letter, and ask if it is right.
-- Repeat the service, price, day, time, district and email back and ask if they are right. Only after they say yes, say "one moment" and call book_appointment, using the exact start value from check_availability.
-- Say the appointment is booked only if book_appointment returns ok true and confirmed true. Then say the day and time, and that a confirmation email is on its way. If confirmed is false, say the request is in and the ${S()} team will confirm.
+- Once you know the service and have given the price, work out how long the job takes from JOB LENGTH in the business information, and tell the caller. If it isn't listed there, use 3 hours. Always pass that length as duration_minutes to both check_availability and book_appointment.
+- Ask which day suits the caller. Work the date out from today's date, say "one moment", then call check_availability. Offer at most three times. If requested_date_free is false, say that day is full and offer the day it returned.
+- Collect the caller's name, phone, street address with district, and email. Tell them the confirmation goes to that email. Ask them to spell the email, read it back letter by letter, and ask if it is right.
+- Repeat the service, price, day, start time, job length, address and email back and ask if they are right. Only after they say yes, say "one moment" and call book_appointment, using the exact start value from check_availability.
+- Say the appointment is booked only if book_appointment returns ok true and confirmed true. Then say the day, the start time and how many hours are booked, using the minutes value it returned, and that a confirmation email is on its way. If confirmed is false, say the request is in and the ${S()} team will confirm.
 - If the code is slot_taken, apologize and call check_availability again. If it is anything else, call save_booking, tell the caller nothing is booked yet, and say the ${S()} team will confirm.
 - Only one appointment can be booked per call.
 
@@ -502,8 +509,8 @@ const VOICE_TOOLS = [
   {type:'function', name:'save_handoff', description:'Leave a message for the owner or team.', parameters:{type:'object', properties:{reason:{type:'string'},summary:{type:'string'},callback:{type:'string'}}, required:['reason','summary']}}
 ];
 const VOICE_TOOLS_LIVE = [
-  {type:'function', name:'check_availability', description:'Look up real free appointment times for a day. If that day is full, it returns the next free day.', parameters:{type:'object', properties:{date:{type:'string',description:'Day to check, as YYYY-MM-DD'}}, required:['date']}},
-  {type:'function', name:'book_appointment', description:'Book the appointment on the calendar and email the caller. Use only after the caller has said the repeated details and spelled email are right.', parameters:{type:'object', properties:{start:{type:'string',description:'The exact start value from check_availability'},name:{type:'string'},email:{type:'string'},phone:{type:'string'},address:{type:'string',description:'District'},service:{type:'string'},size:{type:'string'},estimate_eur:{type:'number'},notes:{type:'string'}}, required:['start','name','email','phone','address','service']}},
+  {type:'function', name:'check_availability', description:'Look up real free appointment times for a day. If that day is full, it returns the next free day.', parameters:{type:'object', properties:{date:{type:'string',description:'Day to check, as YYYY-MM-DD'},duration_minutes:{type:'number',description:'How long the job takes'}}, required:['date','duration_minutes']}},
+  {type:'function', name:'book_appointment', description:'Book the appointment on the calendar and email the caller. Use only after the caller has said the repeated details and spelled email are right.', parameters:{type:'object', properties:{start:{type:'string',description:'The exact start value from check_availability'},duration_minutes:{type:'number',description:'The same length used in check_availability'},name:{type:'string'},email:{type:'string'},phone:{type:'string'},address:{type:'string',description:'Street address and district'},service:{type:'string'},size:{type:'string'},estimate_eur:{type:'number'},notes:{type:'string'}}, required:['start','duration_minutes','name','email','phone','address','service']}},
   ...VOICE_TOOLS
 ];
 let voice = null;
