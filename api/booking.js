@@ -21,7 +21,7 @@ const LIMITS = {
   booksPerDay: 5,       // bookings per IP per day
   booksPerDayAll: 30,   // bookings per day across everyone, per instance
   searchDays: 14,       // how far ahead to look for a free day
-  maxSlots: 8,          // times returned to Mia for one day
+  maxSlots: 24,         // times returned to Mia for one day
   timeoutMs: 12000,
   settingsCacheMs: 60_000,
 };
