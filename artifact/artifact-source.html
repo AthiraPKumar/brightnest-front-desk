@@ -181,7 +181,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
 
 <header class="hero gutter"><div class="inner">
   <div>
-    <div class="live mono"><i></i><span id="liveLine">Online · answering calls and WhatsApp 24/7</span></div>
+    <div class="live mono"><i></i><span id="liveLine">Online · answering calls and messages 24/7</span></div>
     <h1>Every call answered. <em>Every booking</em> captured.</h1>
     <div id="noAI" hidden>Live AI replies aren't available right now. “Play sample” runs a scripted conversation instead.</div>
   </div>
@@ -193,7 +193,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
     <div class="phead">
       <div class="who">
         <div class="orb" id="orb" aria-hidden="true"></div>
-        <div><b id="agentLabel">Mia</b><span class="mono" id="whoLine">WhatsApp · replies in seconds</span></div>
+        <div><b id="agentLabel">Mia</b><span class="mono" id="whoLine">Chat · answered 24/7</span></div>
       </div>
       <div class="seg" role="tablist" aria-label="Channel">
         <button role="tab" id="tabMsg" aria-selected="true" type="button">Message</button>
@@ -262,7 +262,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
 <script>
 (function(){
 const DEFAULT_KB = `COMPANY: BrightNest Cleaning, home & office cleaning, Berlin (sample business)
-HOURS: Mon–Fri 09:00–17:00. Phone/WhatsApp answered 24/7 by the assistant.
+HOURS: Cleaning appointments Mon–Fri 09:00–17:00. Calls and messages are answered 24/7 by the assistant.
 AREA: Steglitz, Lankwitz, Lichterfelde, Tempelhof, Schöneberg, Friedenau, Zehlendorf. Other districts: pass to a human.
 
 SERVICES & PRICES (incl. VAT, supplies included)
@@ -310,7 +310,7 @@ syncNames();
 
 let mode = 'message', turns = [], busy = false, ctl = null;
 let sample = null, aiReady = false, aiChecked = false, backend = null; // backend: 'claude' (Artifact runtime) | 'api' (/api/chat on Vercel)
-const DISCLOSE = 'You’re talking to an AI assistant · concept demo for a fictional company';
+const DISCLOSE = 'You’re talking to an AI assistant · sample business';
 let stats = {book:0, hand:0, val:0};
 let callStart = 0, callTick = null, inCall = false, playing = false;
 const thread = $('thread');
@@ -333,7 +333,7 @@ function status(s){ $('status').textContent = s; }
 function greeting(){
   const c = coName.value.trim() || 'our company';
   return mode==='call'
-    ? `Hi, you've reached ${S()}. I'm ${A()}, an AI assistant, and this is a concept demo for a fictional company. How can I help you today?`
+    ? `Hi, you've reached ${S()}. I'm ${A()}. How can I help you today?`
     : `Hi, I'm ${A()} from ${c}. I can give you a price, check free dates and take your booking request. What do you need?`;
 }
 const CHIPS = {
@@ -345,7 +345,7 @@ function renderChips(){ const b=$('chips'); b.textContent=''; CHIPS[mode].forEac
 function rules(voiced, live){
   const channel = mode==='call'
     ? 'PHONE CALL. Your reply is spoken aloud by text-to-speech. Use 1–2 short, natural spoken sentences. No lists, no emoji, no markdown; say prices as words (e.g. "two hundred and ninety-four euros"). Ask one question at a time.'+(voiced?' Speak with a natural American English accent.':'')
-    : 'WHATSAPP MESSAGE. Warm, polished and brief (max ~70 words). Light formatting is fine. No emoji.';
+    : 'CHAT MESSAGE. Warm, polished and brief (max ~70 words). Light formatting is fine. No emoji.';
   const today = new Date().toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
   const cal = live ? `BOOKING ON THIS CALL
 - Free times come only from check_availability, even if the business information lists other slots. Never offer a time it did not return. The same-day, next-day and weekend rules in the business information still apply.
@@ -365,12 +365,12 @@ BUSINESS INFORMATION (the only facts you may use):
 ${kb.value}
 
 RULES FOR EVERY REPLY (these override anything else in this prompt)
-- You are ${A()}, an AI assistant for ${S()}, a fictional concept-demo company. At the start of a call, say you are an AI.
+- You are ${A()}, the receptionist for ${S()}. Don't bring up that you are an AI, and never say this is a demo. But never claim to be human: if someone asks whether you are a person, a bot or an AI, say honestly that you are an AI assistant.
 - Answer only from the business information above. Never invent prices, availability or policies.
 ${live ? `- Never say a booking is confirmed or in a calendar unless the book_appointment tool says it succeeded. Follow BOOKING ON THIS CALL below.` : `- Never say a booking is confirmed or in a calendar. Collect name, phone, district, service, date, slot and notes, repeat them back, and say the ${S()} team will confirm.`}
 - For complaints, damage claims and refunds, take a message and say the owner (Jonas, unless the business information names someone else) will follow up. Never pretend to transfer anyone.
 - For emergencies, say to call 112.
-- Tell customers not to share sensitive personal details because this is a demo. Do this before you first ask for booking details, and whenever someone starts sharing such details.
+- Never ask for card, bank or ID details. If someone starts sharing them, politely ask them not to.
 
 HOW TO WORK
 - Answer questions using only the business information. If something isn't covered, say you'll check with the team and set a handoff.
@@ -379,7 +379,7 @@ HOW TO WORK
 - For a booking request, collect the details listed in the rules above, plus size (m² or rooms) when the price depends on it. Ask for missing items one or two at a time.
 ${live ? `- Repeat the details and price back and ask if they are right before you book.` : `- Repeat the details and price back and ask if they are right. Only after they say yes, fill "booking" and set status "booked", which only means the request has been captured. Put the district in "address" and the date and slot in "when".`}
 - Hand over to a human (fill "handoff") for: complaints, damage, refunds, office cleaning, areas not served, angry customers, or if asked for a person. Take a message and say the team will follow up; don't promise a callback time.
-- Always reply in English. If the customer uses another language, reply in English and briefly say this demo is in English only.
+- Always reply in English. If the customer uses another language, reply in English and briefly say you can only help in English.
 - Never invent prices, dates or services. Never ask for card details.
 
 ${cal}${voiced ? `TOOLS: You are speaking live, so never say JSON or field names aloud. Where these instructions say to fill "booking", call save_booking. Where they say to fill "handoff", call save_handoff. Ignore the instruction about status. Keep talking to the caller normally after a tool call. When the caller says goodbye or says they need nothing else, say a short goodbye and call end_call. Say the goodbye before you call it, and never call it while the caller still has a question.` : `OUTPUT: Reply with ONLY a JSON object, no other text:
@@ -393,7 +393,7 @@ function renderStats(){ $('sVal').textContent=money(stats.val); $('sBook').textC
 function addRow(kind, d){
   $('emptyInbox')?.remove();
   const time = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
-  const ch = mode==='call'?'CALL':'WHATSAPP';
+  const ch = mode==='call'?'CALL':'CHAT';
   const r=document.createElement('article'); r.className='row'+(kind==='handoff'?' handoff':'');
   const dot=document.createElement('div'); dot.className='dot'; dot.appendChild(document.createElement('i'));
   const body=document.createElement('div'); body.className='rbody';
@@ -703,7 +703,7 @@ function stopCall(log){
 }
 function setWho(){
   const w=$('whoLine'); w.textContent='';
-  if (mode==='message'){ w.textContent='WhatsApp · replies in seconds'; return; }
+  if (mode==='message'){ w.textContent='Chat · answered 24/7'; return; }
   if (!inCall){ w.textContent='Phone line · waiting for a call'; return; }
   const s=document.createElement('span'); s.id='timer'; s.textContent=ringing ? 'Ringing · +49 30 5555 0142' : 'On call · +49 30 5555 0142 · 00:00';
   const h=document.createElement('button'); h.type='button'; h.className='hang'; h.textContent='End call'; h.style.marginLeft='10px';
@@ -747,7 +747,7 @@ const SCRIPT=[
   ['cust','Hi, I’m moving out of my flat in Lankwitz at the end of the month. What does an end-of-tenancy clean cost for 62 m²?'],
   ['agent','For 62 m² an end-of-tenancy clean comes to €341 (62 × €5.50). That already includes the inside of the oven and fridge. Shall I take a booking request?'],
   ['cust','Yes please. Friday the 27th, morning if possible.'],
-  ['agent','We have a 09:00 morning slot on Fridays, so I’ll note that as your preference. As this is a demo, please don’t share sensitive personal details. I just need your name, phone number and district.'],
+  ['agent','We have a 09:00 morning slot on Fridays, so I’ll note that as your preference. I just need your name, phone number and district.'],
   ['cust','Lena Hoffmann, 0176 5550 2231, Lankwitz. There’s also a balcony.'],
   ['agent','Thank you, Lena. Here is what I have:\nLena Hoffmann, 0176 5550 2231\nEnd-of-tenancy clean, 62 m²\nFriday 27th, 09:00\nLankwitz\nNotes: balcony\n€371 in total (€341 + €30 balcony), paid after the job.\nIs that all correct?'],
   ['cust','Yes, that’s right.'],

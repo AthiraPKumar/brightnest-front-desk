@@ -2,7 +2,7 @@
 
 An AI receptionist that answers customer calls and WhatsApp messages for a cleaning company:
 it quotes from the price list, books jobs, and hands complaints to the owner.
-It is a concept demo for a fictional company, and every chat starts by saying so.
+BrightNest is a sample business. Every chat shows an on-screen note that the customer is talking to an AI assistant, and Mia says so if asked.
 
 Live demo: https://brightnest-front-desk.vercel.app/
 
