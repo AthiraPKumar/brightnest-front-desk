@@ -55,9 +55,9 @@ per call that the page enforces. The browser sets up the voice session, so someo
 change Mia's instructions or keep a call open longer. **Set a spending limit in the xAI console.**
 
 ## Calendar bookings (Cal.com)
-Add `CAL_API_KEY` in Vercel to let Mia check free times and book appointments during a microphone call.
+Add `CAL_API_KEY` in Vercel to let Mia check free times and book appointments, in microphone calls and typed chat.
 The appointment goes on the Cal.com booking type set by `CAL_USERNAME` and `CAL_EVENT_SLUG`, and Cal.com emails the caller.
-Without the key, Mia takes a request and says the team will confirm. Typed chats and calls that fall back to typing always work that way.
+Without the key, Mia takes a request and says the team will confirm. Inside the Claude Artifact she always works that way.
 
 Mia takes the job length from `JOB LENGTH` in the business setup. Turn on multiple durations in Cal.com and add those lengths, or every booking uses the default length.
 Working hours, location and calendar sync are set in Cal.com.

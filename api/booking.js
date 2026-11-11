@@ -1,5 +1,6 @@
 // Vercel serverless function: POST /api/booking
-// Lets Mia check free times and create bookings on Cal.com during a voice call.
+// Lets Mia check free times and create bookings on Cal.com, in voice calls and typed chat.
+//   {action:'status'} says whether booking is switched on (no Cal.com call)
 //   {action:'slots', date:'YYYY-MM-DD', duration_minutes}
 //   {action:'book', start, duration_minutes, name, email, phone, address, service, size, estimate_eur, notes}
 // Job lengths and the location type come from the Cal.com booking type's own settings.
@@ -215,6 +216,7 @@ module.exports = async function handler(req, res) {
   const body = readBody(req);
   const ip = clientIp(req);
   try {
+    if (body.action === 'status') return res.status(200).json({ ok: true });
     if (body.action === 'slots') {
       if (count(`m:${ip}`, 60_000) > LIMITS.slotsPerMinute) {
         res.setHeader('Retry-After', '60');

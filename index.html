@@ -282,13 +282,13 @@ SERVICES & PRICES (incl. VAT, supplies included)
 - Office cleaning: needs an on-site visit. Pass to a human to schedule it.
 
 JOB LENGTH (blocks the calendar for this long)
-- Regular home cleaning: 2 hours for up to 50 m² or 1 room, 3 hours for up to 75 m² or 2 rooms, 4 hours up to 100 m² or 3 rooms, 5 hours for anything larger.
-- Deep clean: 4 hours for up to 75 m², 6 hours for anything larger.
-- End-of-tenancy clean: 5 hours for up to 75 m², 7 hours for anything larger.
+- Regular home cleaning (price = hours × €32): up to 50 m² or 1 room: 2 hours. 51–75 m² or 2 rooms: 3 hours. 76–100 m² or 3 rooms: 4 hours. Over 100 m² or 4+ rooms: 5 hours.
+- Deep clean: up to 75 m²: 4 hours. Over 75 m²: 6 hours.
+- End-of-tenancy clean: up to 75 m²: 5 hours. Over 75 m²: 7 hours.
 - Window cleaning: 2 hours.
 
 AVAILABILITY (next 2 weeks)
-- Mornings 09:00 and afternoons 13:00, Monday to Friday. No weekends.
+- Jobs start on the hour from 09:00, Monday to Friday, and must finish by 17:00. No weekends.
 - Same-day jobs: not possible. Next-day: only if booked before 15:00.
 
 POLICIES
@@ -390,7 +390,13 @@ ${live ? `- Repeat the details and price back and ask if they are right before y
 - Always reply in English. If the customer uses another language, reply in English and briefly say you can only help in English.
 - Never invent prices, dates or services. Never ask for card details.
 
-${cal}${voiced ? `TOOLS: You are speaking live, so never say JSON or field names aloud. Where these instructions say to fill "booking", call save_booking. Where they say to fill "handoff", call save_handoff. Ignore the instruction about status. Keep talking to the caller normally after a tool call. When the caller says goodbye or says they need nothing else, say a short goodbye and call end_call. Say the goodbye before you call it, and never call it while the caller still has a question.` : `OUTPUT: Reply with ONLY a JSON object, no other text:
+${cal}${!voiced && live ? `OUTPUT: Reply with ONLY a JSON object, no other text:
+{"reply": string, "status": "chatting"|"quoted"|"booked"|"handoff",
+ "booking": null | {"name":string,"phone":string,"address":string,"service":string,"size":string,"when":string,"estimate_eur":number,"notes":string},
+ "handoff": null | {"reason":string,"summary":string,"callback":string},
+ "calendar": null | {"action":"check","date":"YYYY-MM-DD","duration_minutes":number} | {"action":"book","start":string,"duration_minutes":number,"name":string,"email":string,"phone":string,"address":string,"service":string,"size":string,"estimate_eur":number,"notes":string}}
+
+CALENDAR IN CHAT: Where these instructions say to call check_availability or book_appointment, put that request in "calendar" and keep "reply" short, like "One moment, let me check." The result comes back in the next message as CALENDAR RESULT; its slots are exact start values. Where they say to call save_booking, fill "booking"; otherwise leave "booking" null. Ignore anything about end_call. The customer types their email, so don't ask them to spell it, just repeat it back. Set status "booked" only after a CALENDAR RESULT with ok true.` : voiced ? `TOOLS: You are speaking live, so never say JSON or field names aloud. Where these instructions say to fill "booking", call save_booking. Where they say to fill "handoff", call save_handoff. Ignore the instruction about status. Keep talking to the caller normally after a tool call. When the caller says goodbye or says they need nothing else, say a short goodbye and call end_call. Say the goodbye before you call it, and never call it while the caller still has a question.` : `OUTPUT: Reply with ONLY a JSON object, no other text:
 {"reply": string, "status": "chatting"|"quoted"|"booked"|"handoff",
  "booking": null | {"name":string,"phone":string,"address":string,"service":string,"size":string,"when":string,"estimate_eur":number,"notes":string},
  "handoff": null | {"reason":string,"summary":string,"callback":string}}`}`;
@@ -452,12 +458,20 @@ async function ensureAI(){
   } else backend = 'api';
   aiReady=!!backend; if(!aiReady) $('noAI').hidden=false; return aiReady;
 }
+let chatBooking = null, chatCal = {};
+async function chatBookingOn(){
+  if (chatBooking!==null) return chatBooking;
+  if (backend!=='api') return (chatBooking=false);
+  try{ const r=await fetch('/api/booking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'status'})}); chatBooking=r.ok; }
+  catch(e){ chatBooking=false; }
+  return chatBooking;
+}
 function aiOff(){ aiReady=false; backend=null; $('noAI').hidden=false; }
-async function askAI(msgs){
+async function askAI(msgs, live){
   if (backend==='claude') return sample.json([{role:'user',content:rules()}, ...msgs], {modelTier:'quick', cache:false, signal:ctl.signal});
   let r, data=null;
   try{
-    r = await fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({system:rules(), messages:msgs}), signal:ctl.signal});
+    r = await fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({system:rules(false, live), messages:msgs}), signal:ctl.signal});
   }catch(e){ throw {code: e&&e.name==='AbortError' ? 'cancelled' : 'api_unreachable'}; }
   try{ data = await r.json(); }catch(e){}
   if (!r.ok || !data || data.error){
@@ -481,18 +495,31 @@ async function send(text){
   add('cust', text); turns.push({role:'user',content:text});
   busy=true; $('send').disabled=true;
   if (!(await ensureAI())){ busy=false; $('send').disabled=false; add('sys','Live AI is off here. Press Play sample to see the scripted demo.'); return; }
-  const t=thinking(); status(A()+' is thinking…');
+  let t=thinking(); status(A()+' is thinking…');
   ctl=new AbortController();
+  const history=()=>turns.slice(-24).map(m=>({role:m.role, content:m.content.slice(0,1200)}));
   try{
-    const res=await askAI(turns.slice(-24).map(m=>({role:m.role, content:m.content.slice(0,1200)})));
+    const live = await chatBookingOn();
+    let res=await askAI(history(), live);
+    // Mia asked the calendar something: show her holding reply, ask Cal.com, and give her the result.
+    for (let round=0; live&&res&&res.calendar&&typeof res.calendar==='object'&&round<3; round++){
+      const say=(typeof res.reply==='string'&&res.reply.trim())||'One moment, let me check.';
+      settle(t, say); turns.push({role:'assistant',content:say});
+      t=thinking(); status('Checking the calendar…');
+      const d=await calendarCall(chatCal, res.calendar.action==='book', res.calendar);
+      if (Array.isArray(d.slots)) d.slots=d.slots.map(x=>x.start);
+      turns.push({role:'user',content:'CALENDAR RESULT (from the booking system, not the customer): '+JSON.stringify(d)});
+      res=await askAI(history(), live);
+    }
     const reply=(res&&typeof res.reply==='string'&&res.reply.trim())?res.reply.trim():'Sorry, could you say that again?';
     settle(t, reply); turns.push({role:'assistant',content:reply});
-    if (res&&res.booking&&typeof res.booking==='object') addRow('booking',res.booking);
+    if (res&&res.booking&&typeof res.booking==='object'&&!chatCal.booked) addRow('booking',res.booking);
     if (res&&res.handoff&&typeof res.handoff==='object') addRow('handoff',res.handoff);
-    status(res&&res.status ? 'Status · '+(res.status==='booked'?'request captured':res.status) : 'Ready');
+    status(res&&res.status ? 'Status · '+(res.status==='booked'?(chatCal.booked?'booked on calendar':'request captured'):res.status) : 'Ready');
     speak(reply);
   }catch(e){
-    t.parentElement.remove(); turns.pop();
+    t.parentElement.remove();
+    const last=turns[turns.length-1]; if (last&&last.role==='user'&&last.content===text) turns.pop();
     const off='Live AI isn’t available here. Press Play sample to see the scripted demo.';
     const map={not_granted:'The page wasn’t allowed to use Claude. Press Play sample instead.',sampling_disabled:off,api_unreachable:off,not_configured:off,rate_limited:'Too many messages too quickly. Wait a moment, then send again.',session_expired:'Sign in to Claude again, then resend.',cancelled:'Stopped.',invalid_json:'The answer came back garbled. Send the message again.'};
     add('sys', map[e&&e.code] || (e&&e.message) || A()+' couldn’t answer just now. Send the message again.');
@@ -516,21 +543,24 @@ const VOICE_TOOLS_LIVE = [
   ...VOICE_TOOLS
 ];
 let voice = null;
-async function voiceCalendar(v,name,a){
-  const booking=name==='book_appointment';
-  if (booking&&v.booked) return JSON.stringify({ok:false,code:'already_booked',booked:v.booked});
-  if (booking&&v.booking) return JSON.stringify({ok:false,code:'in_progress'});
-  if (booking) v.booking=true;
+// Checks free times or books on Cal.com through /api/booking. `state` is the voice call or the chat,
+// and allows one booking per conversation.
+async function calendarCall(state,booking,a){
+  if (booking&&state.booked) return {ok:false,code:'already_booked',booked:state.booked};
+  if (booking&&state.booking) return {ok:false,code:'in_progress'};
+  if (booking) state.booking=true;
   const ctl=new AbortController(), timer=setTimeout(()=>ctl.abort(),15000);
+  const {action, ...args}=a||{};
   try{
-    const r=await fetch('/api/booking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...a,action:booking?'book':'slots'}),signal:ctl.signal});
+    const r=await fetch('/api/booking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...args,action:booking?'book':'slots'}),signal:ctl.signal});
     const d=await r.json();
-    if (d.error) return JSON.stringify({ok:false,code:d.error.code});
-    if (booking&&d.ok){ v.booked=d; addRow('booking',{...a,when:d.when,calendar:d.confirmed}); }
-    return JSON.stringify(d);
-  }catch(e){ return JSON.stringify({ok:false,code:'unavailable'}); }
-  finally{ clearTimeout(timer); if (booking) v.booking=false; }
+    if (d.error) return {ok:false,code:d.error.code};
+    if (booking&&d.ok){ state.booked=d; addRow('booking',{...args,when:d.when,calendar:d.confirmed}); }
+    return d;
+  }catch(e){ return {ok:false,code:'unavailable'}; }
+  finally{ clearTimeout(timer); if (booking) state.booking=false; }
 }
+async function voiceCalendar(v,name,a){ return JSON.stringify(await calendarCall(v,name==='book_appointment',a)); }
 function voiceContinue(v){
   if (v.calls||v.responding) return;
   if (v.ending){ voiceFinish(v); return; }
@@ -721,7 +751,7 @@ function setWho(){
 function resetConvo(){
   try{ctl&&ctl.abort();}catch(e){}
   playing=false; stopCall(false);
-  thread.textContent=''; turns=[]; busy=false; $('send').disabled=false;
+  thread.textContent=''; turns=[]; chatCal={}; busy=false; $('send').disabled=false;
   const call = mode==='call';
   $('callstart').hidden=!call; thread.hidden=call; $('foot').hidden=call;
   if (!call){ add('sys',DISCLOSE); const g=greeting(); add('agent',g); turns.push({role:'assistant',content:g}); }

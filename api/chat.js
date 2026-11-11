@@ -66,6 +66,7 @@ function normalise(raw) {
     status: STATUSES.has(out.status) ? out.status : 'chatting',
     booking: obj(out.booking),
     handoff: obj(out.handoff),
+    calendar: obj(out.calendar),
   };
 }
 
