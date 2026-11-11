@@ -513,7 +513,7 @@ async function send(text){
     }
     const reply=(res&&typeof res.reply==='string'&&res.reply.trim())?res.reply.trim():'Sorry, could you say that again?';
     settle(t, reply); turns.push({role:'assistant',content:reply});
-    if (res&&res.booking&&typeof res.booking==='object'&&!chatCal.booked) addRow('booking',res.booking);
+    if (res&&res.booking&&typeof res.booking==='object'&&!chatCal.booked&&(!live||(chatCal.bookFailed&&res.status==='booked'))) addRow('booking',res.booking);
     if (res&&res.handoff&&typeof res.handoff==='object') addRow('handoff',res.handoff);
     status(res&&res.status ? 'Status · '+(res.status==='booked'?(chatCal.booked?'booked on calendar':'request captured'):res.status) : 'Ready');
     speak(reply);
@@ -544,7 +544,7 @@ const VOICE_TOOLS_LIVE = [
 ];
 let voice = null;
 // Checks free times or books on Cal.com through /api/booking. `state` is the voice call or the chat,
-// and allows one booking per conversation.
+// and allows one booking per conversation. In chat, a request row is only added if the calendar booking failed.
 async function calendarCall(state,booking,a){
   if (booking&&state.booked) return {ok:false,code:'already_booked',booked:state.booked};
   if (booking&&state.booking) return {ok:false,code:'in_progress'};
@@ -554,10 +554,10 @@ async function calendarCall(state,booking,a){
   try{
     const r=await fetch('/api/booking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...args,action:booking?'book':'slots'}),signal:ctl.signal});
     const d=await r.json();
-    if (d.error) return {ok:false,code:d.error.code};
+    if (d.error){ if (booking&&d.error.code!=='slot_taken') state.bookFailed=true; return {ok:false,code:d.error.code}; }
     if (booking&&d.ok){ state.booked=d; addRow('booking',{...args,when:d.when,calendar:d.confirmed}); }
     return d;
-  }catch(e){ return {ok:false,code:'unavailable'}; }
+  }catch(e){ if (booking) state.bookFailed=true; return {ok:false,code:'unavailable'}; }
   finally{ clearTimeout(timer); if (booking) state.booking=false; }
 }
 async function voiceCalendar(v,name,a){ return JSON.stringify(await calendarCall(v,name==='book_appointment',a)); }

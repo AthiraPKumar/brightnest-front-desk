@@ -51,15 +51,36 @@ function fail(res, status, code, message) {
 
 function obj(v) { return v && typeof v === 'object' && !Array.isArray(v) ? v : null; }
 
-function normalise(raw) {
-  let out;
-  try {
-    const text = String(raw || '').trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
-    out = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
-  } catch {
-    return null;
+// Every top-level {...} in the text, parsed. The model sometimes sends two objects in a row,
+// or wraps the answer in a code fence.
+function jsonObjects(text) {
+  const found = [];
+  let depth = 0, start = -1, inString = false, escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') { if (depth++ === 0) start = i; }
+    else if (ch === '}' && depth > 0 && --depth === 0) {
+      try { found.push(JSON.parse(text.slice(start, i + 1))); } catch {}
+    }
   }
-  const reply = typeof out.reply === 'string' ? out.reply.trim().slice(0, 2000) : '';
+  return found;
+}
+
+function normalise(raw) {
+  const candidates = jsonObjects(String(raw || ''))
+    .map(o => (typeof o.reply === 'string' ? o : obj(o.response) || obj(o.answer) || obj(o.data) || o));
+  const out = candidates.filter(o => typeof o.reply === 'string' && o.reply.trim()).pop() || candidates.pop();
+  if (!out) return null;
+  let reply = typeof out.reply === 'string' ? out.reply.trim().slice(0, 2000) : '';
+  // A calendar request with no words still works: the page shows a holding line.
+  if (!reply && obj(out.calendar)) reply = 'One moment, let me check.';
   if (!reply) return null;
   return {
     reply,
@@ -108,6 +129,8 @@ module.exports = async function handler(req, res) {
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), LIMITS.timeoutMs);
   try {
+    // One retry if the answer can't be used. The log says why, without the conversation text.
+    for (let attempt = 1; ; attempt++) {
     const r = await fetch(XAI_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey()}` },
@@ -119,7 +142,7 @@ module.exports = async function handler(req, res) {
         ],
         response_format: { type: 'json_object' },
         temperature: 0.4,
-        max_tokens: 700,
+        max_tokens: 1000,
       }),
       signal: ctl.signal,
     });
@@ -129,9 +152,13 @@ module.exports = async function handler(req, res) {
       return fail(res, 502, 'upstream_error', 'The assistant couldn’t answer just now. Please send the message again.');
     }
     const data = await r.json();
-    const result = normalise(data?.choices?.[0]?.message?.content);
-    if (!result) return fail(res, 502, 'invalid_json', 'The answer came back garbled. Send the message again.');
-    return res.status(200).json(result);
+    const choice = data?.choices?.[0];
+    const result = normalise(choice?.message?.content);
+    if (result) return res.status(200).json(result);
+    const content = String(choice?.message?.content || '');
+    console.error('xAI answer not usable', { attempt, finish: choice?.finish_reason, length: content.length, objects: jsonObjects(content).map(o => Object.keys(o).join('+')) });
+    if (attempt >= 2) return fail(res, 502, 'invalid_json', 'The answer came back garbled. Send the message again.');
+    }
   } catch (e) {
     console.error('xAI request failed', e && e.name, e && e.message);
     const timeout = e && e.name === 'AbortError';
