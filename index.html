@@ -345,10 +345,10 @@ function greeting(){
     : `Hi, I'm ${A()} from ${c}. I can give you a price, check free dates and take your booking request. What do you need?`;
 }
 const CHIPS = {
-  message:['How much is a deep clean for a 70 m² flat?','I’m moving out. What does an end-of-tenancy clean cost for 55 m²?','Do you clean in Lankwitz on Friday morning?','Your cleaner broke my vase. I want to talk to someone.'],
-  call:['I need a cleaner for my flat, about 80 square metres.','What does an end-of-tenancy clean cost?','Can you come tomorrow?','I’d like to speak to a person, please.']
+  message:['How much is a deep clean for a 70 m² flat?','I’m moving out. What does an end-of-tenancy clean cost for 55 m²?','Do you clean in Lankwitz on Friday morning?','Your cleaner broke my vase. I want to talk to someone.']
 };
-function renderChips(){ const b=$('chips'); b.textContent=''; CHIPS[mode].forEach(t=>{const x=document.createElement('button');x.type='button';x.textContent=t;x.onclick=()=>send(t);b.appendChild(x);}); }
+// Suggestions only show in Message mode, never during a phone call.
+function renderChips(){ const b=$('chips'), list=CHIPS[mode]||[]; b.textContent=''; b.style.display=list.length?'':'none'; list.forEach(t=>{const x=document.createElement('button');x.type='button';x.textContent=t;x.onclick=()=>send(t);b.appendChild(x);}); }
 
 function rules(voiced, live){
   const channel = mode==='call'
@@ -396,7 +396,7 @@ ${cal}${!voiced && live ? `OUTPUT: Reply with ONLY a JSON object, no other text:
  "handoff": null | {"reason":string,"summary":string,"callback":string},
  "calendar": null | {"action":"check","date":"YYYY-MM-DD","duration_minutes":number} | {"action":"book","start":string,"duration_minutes":number,"name":string,"email":string,"phone":string,"address":string,"service":string,"size":string,"estimate_eur":number,"notes":string}}
 
-CALENDAR IN CHAT: Where these instructions say to call check_availability or book_appointment, put that request in "calendar" and keep "reply" short, like "One moment, let me check." The result comes back in the next message as CALENDAR RESULT; its slots are exact start values. Where they say to call save_booking, fill "booking"; otherwise leave "booking" null. Ignore anything about end_call. The customer types their email, so don't ask them to spell it, just repeat it back. Set status "booked" only after a CALENDAR RESULT with ok true.` : voiced ? `TOOLS: You are speaking live, so never say JSON or field names aloud. Where these instructions say to fill "booking", call save_booking. Where they say to fill "handoff", call save_handoff. Ignore the instruction about status. Keep talking to the caller normally after a tool call. When the caller says goodbye or says they need nothing else, say a short goodbye and call end_call. Say the goodbye before you call it, and never call it while the caller still has a question.` : `OUTPUT: Reply with ONLY a JSON object, no other text:
+CALENDAR IN CHAT: Where these instructions say to call check_availability or book_appointment, put that request in "calendar" and keep "reply" short, like "One moment, let me check." The result is added to the end of the customer's message as [Calendar result ...]; its slots are exact start values. Once a result is there, answer with it, and set "calendar" to null unless you need a different day, a different length or the booking itself. Where they say to call save_booking, fill "booking"; otherwise leave "booking" null. Ignore anything about end_call. The customer types their email, so don't ask them to spell it, just repeat it back. Set status "booked" only after a calendar result with ok true.` : voiced ? `TOOLS: You are speaking live, so never say JSON or field names aloud. Where these instructions say to fill "booking", call save_booking. Where they say to fill "handoff", call save_handoff. Ignore the instruction about status. Keep talking to the caller normally after a tool call. When the caller says goodbye or says they need nothing else, say a short goodbye and call end_call. Say the goodbye before you call it, and never call it while the caller still has a question.` : `OUTPUT: Reply with ONLY a JSON object, no other text:
 {"reply": string, "status": "chatting"|"quoted"|"booked"|"handoff",
  "booking": null | {"name":string,"phone":string,"address":string,"service":string,"size":string,"when":string,"estimate_eur":number,"notes":string},
  "handoff": null | {"reason":string,"summary":string,"callback":string}}`}`;
@@ -501,14 +501,16 @@ async function send(text){
   try{
     const live = await chatBookingOn();
     let res=await askAI(history(), live);
-    // Mia asked the calendar something: show her holding reply, ask Cal.com, and give her the result.
+    // Mia asked the calendar something: show her holding reply, ask Cal.com, and add the result to the
+    // customer's message. (Grok often fails to answer when the result is sent as a separate message.)
     for (let round=0; live&&res&&res.calendar&&typeof res.calendar==='object'&&round<3; round++){
       const say=(typeof res.reply==='string'&&res.reply.trim())||'One moment, let me check.';
-      settle(t, say); turns.push({role:'assistant',content:say});
+      settle(t, say);
       t=thinking(); status('Checking the calendar…');
       const d=await calendarCall(chatCal, res.calendar.action==='book', res.calendar);
       if (Array.isArray(d.slots)) d.slots=d.slots.map(x=>x.start);
-      turns.push({role:'user',content:'CALENDAR RESULT (from the booking system, not the customer): '+JSON.stringify(d)});
+      const note='\n\n[Calendar result from the booking system, not typed by the customer: '+JSON.stringify(d)+']';
+      const own=turns[turns.length-1]; if (own&&own.role==='user') own.content=text.slice(0,Math.max(0,1200-note.length))+note;
       res=await askAI(history(), live);
     }
     const reply=(res&&typeof res.reply==='string'&&res.reply.trim())?res.reply.trim():'Sorry, could you say that again?';
@@ -519,7 +521,7 @@ async function send(text){
     speak(reply);
   }catch(e){
     t.parentElement.remove();
-    const last=turns[turns.length-1]; if (last&&last.role==='user'&&last.content===text) turns.pop();
+    const last=turns[turns.length-1]; if (last&&last.role==='user'&&last.content.startsWith(text.slice(0,100))) turns.pop();
     const off='Live AI isn’t available here. Press Play sample to see the scripted demo.';
     const map={not_granted:'The page wasn’t allowed to use Claude. Press Play sample instead.',sampling_disabled:off,api_unreachable:off,not_configured:off,rate_limited:'Too many messages too quickly. Wait a moment, then send again.',session_expired:'Sign in to Claude again, then resend.',cancelled:'Stopped.',invalid_json:'The answer came back garbled. Send the message again.'};
     add('sys', map[e&&e.code] || (e&&e.message) || A()+' couldn’t answer just now. Send the message again.');
