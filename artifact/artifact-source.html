@@ -117,7 +117,7 @@ h1 em{color:var(--pine)}
 .lhead{display:flex;align-items:baseline;justify-content:space-between;padding:4px 0 18px;border-bottom:1px solid var(--ink)}
 .lhead h2{font-family:var(--serif);font-weight:400;font-size:34px;letter-spacing:-.015em;margin:0;line-height:1}
 .lhead .mono{color:var(--lichen)}
-.stats{display:flex;padding:20px 0 24px;border-bottom:1px solid var(--line)}
+.stats{display:flex;gap:12px;padding:20px 0 24px;border-bottom:1px solid var(--line)}
 .stats div{display:flex;flex-direction:column;gap:4px}
 .stats div:first-child{flex:1}
 .stats div:not(:first-child){width:84px}
@@ -151,7 +151,7 @@ label{display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--lich
 input[type=text]{border:0;border-bottom:1px solid var(--line-strong);background:transparent;padding:6px 0;font-size:18px;color:var(--ink);border-radius:0}
 input[type=text]:focus{outline:none;border-bottom-color:var(--pine)}
 textarea#kb{background:var(--frost);border:1px solid var(--line);border-radius:18px;padding:18px 20px;font-family:var(--mono);font-size:12.5px;line-height:1.7;min-height:380px;resize:vertical;width:100%}
-.linkbtn{background:none;border:0;padding:0;color:var(--pine);text-decoration:underline;text-underline-offset:3px;font-size:14px;align-self:flex-start}
+.linkbtn{background:none;border:0;padding:10px 0;color:var(--pine);text-decoration:underline;text-underline-offset:3px;font-size:14px;align-self:flex-start}
 
 /* how */
 .steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--ink)}
@@ -185,7 +185,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
     <h1>Every call answered. <em>Every booking</em> captured.</h1>
     <div id="noAI" hidden>Live AI replies aren't available right now. “Play sample” runs a scripted conversation instead.</div>
   </div>
-  <p class="lede" id="lede">Mia quotes from your price list, takes booking requests for your team to confirm and hands complaints to you. By phone or by message.</p>
+  <p class="lede" id="lede">Mia quotes from your price list, books jobs straight into your calendar and passes complaints to you. By phone or by message.</p>
 </div></header>
 
 <main class="console gutter"><div class="inner">
@@ -211,7 +211,7 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
     <div class="foot" id="foot">
       <div class="chips" id="chips"></div>
       <form class="composer" id="composer">
-        <textarea id="input" rows="1" maxlength="1200" placeholder="Write as the customer…" aria-label="Customer message"></textarea>
+        <textarea id="input" rows="1" maxlength="1200" placeholder="Message Mia…" aria-label="Customer message"></textarea>
         <button class="send" id="send" type="submit" aria-label="Send"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8 H13 M9 4 L13 8 L9 12" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
       </form>
       <div class="status" id="status">Ready</div>
@@ -221,11 +221,11 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
   <aside class="ledger" aria-labelledby="ledgerH">
     <div class="lhead"><h2 id="ledgerH">Today</h2><span class="mono">Owner's inbox</span></div>
     <div class="stats">
-      <div><b id="sVal">€0</b><span>Requested value</span></div>
-      <div><b id="sBook">0</b><span>Requests</span></div>
+      <div><b id="sVal">€0</b><span>Booked value</span></div>
+      <div><b id="sBook">0</b><span>Bookings</span></div>
       <div class="hand"><b id="sHand">0</b><span>For you</span></div>
     </div>
-    <div class="rows" id="inbox"><p class="empty" id="emptyInbox">Booking requests and messages appear here the moment Mia captures them.</p></div>
+    <div class="rows" id="inbox"><p class="empty" id="emptyInbox">Bookings and messages for you appear here the moment Mia takes them.</p></div>
   </aside>
 </div></main>
 
@@ -251,8 +251,8 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
   </div>
   <div class="steps">
     <div class="step core"><span class="mono">Agent</span><b>Grok Voice Agent</b><p>Listens, thinks and speaks in one model.</p></div>
-    <div class="step"><span class="mono">Tools</span><b>Quote · Calendar · CRM</b><p>Calculates the price, checks free slots, books the job, logs the customer.</p></div>
-    <div class="step"><span class="mono">Owner</span><b>Alerts &amp; callbacks</b><p>New bookings and anything needing a person go straight to the owner.</p></div>
+    <div class="step"><span class="mono">Tools</span><b>Quote · Calendar</b><p>Calculates the price, checks free times and books the job on the calendar.</p></div>
+    <div class="step"><span class="mono">Owner</span><b>Owner’s inbox</b><p>Every booking, and anything that needs a person, is listed for the owner.</p></div>
   </div>
 </div></section>
 
@@ -307,7 +307,7 @@ const S = () => coName.value.trim().split(/\s+/)[0] || 'our company';
 function syncNames(){
   $('coShort').textContent = (coName.value.trim().split(' ')[0]) || 'Your company';
   $('agentLabel').textContent = A();
-  $('lede').textContent = `${A()} quotes from your price list, takes booking requests for your team to confirm and hands complaints to you. By phone or by message.`;
+  $('lede').textContent = `${A()} quotes from your price list, books jobs straight into your calendar and passes complaints to you. By phone or by message.`;
 }
 kb.addEventListener('input', saveKb);
 coName.addEventListener('input', ()=>{store.set('fd.co', coName.value); syncNames();});
@@ -341,7 +341,7 @@ function greeting(){
   const c = coName.value.trim() || 'our company';
   return mode==='call'
     ? `Hi, you've reached ${S()}. I'm ${A()}. How can I help you today?`
-    : `Hi, I'm ${A()} from ${c}. I can give you a price, check free dates and take your booking request. What do you need?`;
+    : `Hi, I'm ${A()} from ${c}. I can give you a price, find a free time and book you in. What do you need?`;
 }
 const CHIPS = {
   message:['How much is a deep clean for a 70 m² flat?','I’m moving out. What does an end-of-tenancy clean cost for 55 m²?','Do you clean in Lankwitz on Friday morning?','Your cleaner broke my vase. I want to talk to someone.']
@@ -492,6 +492,7 @@ async function send(text){
   }
   $('input').value='';
   add('cust', text); turns.push({role:'user',content:text});
+  if (window.matchMedia&&matchMedia('(max-width:700px)').matches) $('chips').style.display='none';
   busy=true; $('send').disabled=true;
   if (!(await ensureAI())){ busy=false; $('send').disabled=false; add('sys','Live AI is off here. Press Play sample to see the scripted demo.'); return; }
   let t=thinking(); status(A()+' is thinking…');
@@ -528,6 +529,7 @@ async function send(text){
     status('Ready');
   }finally{ busy=false; $('send').disabled=false; }
 }
+$('composer').addEventListener('click', e=>{ if (e.target===$('composer')) $('input').focus(); });
 $('composer').addEventListener('submit', e=>{e.preventDefault(); send($('input').value);});
 $('input').addEventListener('keydown', e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault(); send($('input').value);} });
 
@@ -631,7 +633,7 @@ function voiceEvent(v,e,ready){
         voiceSend(v,{type:'conversation.item.create', item:{type:'force_message', role:'assistant', interruptible:false, content:[{type:'output_text', text:g}]}}); }
       voiceMic(v);
       v.timer=setTimeout(()=>{ add('sys','This demo limits calls to 5 minutes.'); voiceEndCall(); }, VOICE_MAX_MS);
-      $('input').placeholder='Speak, or type what the caller says…'; status('On call · speak any time');
+      $('input').placeholder='Speak, or type…'; status('On call · speak any time');
       });
       break;
     case 'input_audio_buffer.speech_started':
@@ -760,7 +762,7 @@ function resetConvo(){
 }
 function setMode(m){
   mode=m; $('tabMsg').setAttribute('aria-selected',m==='message'); $('tabCall').setAttribute('aria-selected',m==='call');
-  $('input').placeholder = m==='call' ? 'Type what the caller says…' : 'Write as the customer…';
+  $('input').placeholder = m==='call' ? 'Type as the caller…' : 'Message '+A()+'…';
   resetConvo();
 }
 $('tabMsg').onclick=()=>setMode('message');
