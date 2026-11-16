@@ -154,7 +154,7 @@ textarea#kb{background:var(--frost);border:1px solid var(--line);border-radius:1
 .linkbtn{background:none;border:0;padding:0;color:var(--pine);text-decoration:underline;text-underline-offset:3px;font-size:14px;align-self:flex-start}
 
 /* how */
-.steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--ink)}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--ink)}
 @media (max-width:900px){.steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:520px){.steps{grid-template-columns:minmax(0,1fr)}}
 .step{padding:20px 20px 24px 0;display:flex;flex-direction:column;gap:6px;border-bottom:1px solid var(--line)}
@@ -250,7 +250,6 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
     <p>One agent and one price list behind every channel. Phone calls go through Grok Voice. Messages use the same agent in text mode.</p>
   </div>
   <div class="steps">
-    <div class="step"><span class="mono">Channel</span><b>Phone &amp; WhatsApp</b><p>Twilio number over SIP, WhatsApp Business API, website chat.</p></div>
     <div class="step core"><span class="mono">Agent</span><b>Grok Voice Agent</b><p>Listens, thinks and speaks in one model.</p></div>
     <div class="step"><span class="mono">Tools</span><b>Quote · Calendar · CRM</b><p>Calculates the price, checks free slots, books the job, logs the customer.</p></div>
     <div class="step"><span class="mono">Owner</span><b>Alerts &amp; callbacks</b><p>New bookings and anything needing a person go straight to the owner.</p></div>
@@ -292,7 +291,15 @@ POLICIES
 const $ = id => document.getElementById(id);
 const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}}, set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 const kb = $('kb'), coName = $('coName'), agentName = $('agentName');
-kb.value = store.get('fd.kb') || DEFAULT_KB;
+// Only a price list someone edited is saved, so an unedited one always shows the latest default.
+// OLD_KB holds fingerprints of earlier defaults, which browsers may still have saved.
+const OLD_KB = ["69b1e373","3fd358c9","dbef594a","2b54e554","58af76af"];
+function kbPrint(t){ let x=0x811c9dc5; for (let i=0;i<t.length;i++){ x^=t.charCodeAt(i); x=Math.imul(x,0x01000193)>>>0; } return x.toString(16); }
+function saveKb(){ store.set('fd.kb', kb.value===DEFAULT_KB ? '' : kb.value); }
+{ const saved=(store.get('fd.kb')||'').replace(/\r\n/g,'\n');
+  const unedited=!saved || saved===DEFAULT_KB || OLD_KB.includes(kbPrint(saved));
+  if (saved&&unedited) store.set('fd.kb','');
+  kb.value = unedited ? DEFAULT_KB : saved; }
 coName.value = store.get('fd.co') || coName.value;
 agentName.value = store.get('fd.agent') || agentName.value;
 const A = () => agentName.value.trim() || 'Mia';
@@ -302,10 +309,10 @@ function syncNames(){
   $('agentLabel').textContent = A();
   $('lede').textContent = `${A()} quotes from your price list, takes booking requests for your team to confirm and hands complaints to you. By phone or by message.`;
 }
-kb.addEventListener('input', ()=>store.set('fd.kb', kb.value));
+kb.addEventListener('input', saveKb);
 coName.addEventListener('input', ()=>{store.set('fd.co', coName.value); syncNames();});
 agentName.addEventListener('input', ()=>{store.set('fd.agent', agentName.value); syncNames();});
-$('resetKb').onclick = ()=>{kb.value = DEFAULT_KB; store.set('fd.kb', DEFAULT_KB);};
+$('resetKb').onclick = ()=>{kb.value = DEFAULT_KB; saveKb();};
 syncNames();
 
 let mode = 'message', turns = [], busy = false, ctl = null;
