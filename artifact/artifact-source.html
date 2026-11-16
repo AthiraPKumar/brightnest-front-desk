@@ -260,9 +260,9 @@ footer{padding-block:28px 40px;color:var(--lichen);font-size:13px;border-top:1px
 
 <script>
 (function(){
-const DEFAULT_KB = `COMPANY: BrightNest Cleaning, home & office cleaning, Berlin (sample business)
+const DEFAULT_KB = `COMPANY: BrightNest Cleaning, home & office cleaning across all of Berlin (sample business)
 HOURS: Cleaning appointments Mon–Fri 09:00–17:00. Calls and messages are answered 24/7 by the assistant.
-AREA: Steglitz, Lankwitz, Lichterfelde, Tempelhof, Schöneberg, Friedenau, Zehlendorf. Other districts: pass to a human.
+AREA: All of Berlin, every district and neighbourhood. Addresses outside Berlin: pass to a human.
 
 SERVICES & PRICES (incl. VAT, supplies included)
 - Regular home cleaning: €32 per hour, minimum 2 hours. Rule of thumb: 1 hour per 25 m².
@@ -293,7 +293,7 @@ const store = {get(k){try{return localStorage.getItem(k)}catch(e){return null}},
 const kb = $('kb'), coName = $('coName'), agentName = $('agentName');
 // Only a price list someone edited is saved, so an unedited one always shows the latest default.
 // OLD_KB holds fingerprints of earlier defaults, which browsers may still have saved.
-const OLD_KB = ["69b1e373","3fd358c9","dbef594a","2b54e554","58af76af"];
+const OLD_KB = ["69b1e373","3fd358c9","dbef594a","2b54e554","58af76af","c73437ab"];
 function kbPrint(t){ let x=0x811c9dc5; for (let i=0;i<t.length;i++){ x^=t.charCodeAt(i); x=Math.imul(x,0x01000193)>>>0; } return x.toString(16); }
 function saveKb(){ store.set('fd.kb', kb.value===DEFAULT_KB ? '' : kb.value); }
 { const saved=(store.get('fd.kb')||'').replace(/\r\n/g,'\n');
@@ -340,8 +340,8 @@ function status(s){ $('status').textContent = s; }
 function greeting(){
   const c = coName.value.trim() || 'our company';
   return mode==='call'
-    ? `Hi, you've reached ${S()}. I'm ${A()}. How can I help you today?`
-    : `Hi, I'm ${A()} from ${c}. I can give you a price, find a free time and book you in. What do you need?`;
+    ? `Hi, you've reached ${S()}, cleaning all across Berlin. I'm ${A()}. How can I help you today?`
+    : `Hi, I'm ${A()} from ${c}. We clean all across Berlin. I can give you a price, find a free time and book you in. What do you need?`;
 }
 const CHIPS = {
   message:['How much is a deep clean for a 70 m² flat?','I’m moving out. What does an end-of-tenancy clean cost for 55 m²?','Do you clean in Lankwitz on Friday morning?','Your cleaner broke my vase. I want to talk to someone.']
@@ -385,7 +385,7 @@ HOW TO WORK
 - Give price estimates by calculating from the price list and show the basis briefly (e.g. 70 m² × €4.20). Say the final price is confirmed on the day if the size differs.
 - For a booking request, collect the details listed in the rules above, plus size (m² or rooms) when the price depends on it. Ask for missing items one or two at a time.
 ${live ? `- Repeat the details and price back and ask if they are right before you book.` : `- Repeat the details and price back and ask if they are right. Only after they say yes, fill "booking" and set status "booked", which only means the request has been captured. Put the district in "address" and the date and slot in "when".`}
-- Hand over to a human (fill "handoff") for: complaints, damage, refunds, office cleaning, areas not served, angry customers, or if asked for a person. Take a message and say the team will follow up; don't promise a callback time.
+- Hand over to a human (fill "handoff") for: complaints, damage, refunds, office cleaning, addresses outside Berlin, angry customers, or if asked for a person. Take a message and say the team will follow up; don't promise a callback time.
 - Always reply in English. If the customer uses another language, reply in English and briefly say you can only help in English.
 - Never invent prices, dates or services. Never ask for card details.
 
