@@ -6,6 +6,8 @@ BrightNest is a sample business. Every chat shows an on-screen note that the cus
 
 Live demo: https://brightnest-front-desk.vercel.app/
 
+![The demo page: Mia taking a call on the left, the owner’s inbox with the day’s bookings on the right](docs/demo-page.png)
+
 ## What's in this repo
 - `index.html` — the demo page (the hosted website).
 - `api/chat.js` — Vercel serverless function that gives the hosted site live replies from xAI Grok.
@@ -58,6 +60,10 @@ change Mia's instructions or keep a call open longer. **Set a spending limit in 
 Add `CAL_API_KEY` in Vercel to let Mia check free times and book appointments, in microphone calls and typed chat.
 The appointment goes on the Cal.com booking type set by `CAL_USERNAME` and `CAL_EVENT_SLUG`, and Cal.com emails the caller.
 Without the key, Mia takes a request and says the team will confirm. Inside the Claude Artifact she always works that way.
+
+![A booking on Cal.com, marked Confirmed, showing the job, the date and time, the host and attendee, and the address](docs/booking-on-cal-com.png)
+
+*A job Mia booked during a call, as it arrives on Cal.com — confirmed, with the customer and the address already on it.*
 
 Mia takes the job length from `JOB LENGTH` in the business setup. Turn on multiple durations in Cal.com and add those lengths, or every booking uses the default length.
 Working hours, location and calendar sync are set in Cal.com.
